@@ -1,0 +1,1291 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>速成 · Mandarin Sprint — Learn Pinyin by Rapid Recall</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;900&family=Zhi+Mang+Xing&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --paper: #f1e8d6;
+        --paper-deep: #e7dac0;
+        --ink: #221f1b;
+        --ink-soft: #5b5347;
+        --seal: #aa3b2e;
+        --seal-deep: #86281e;
+        --jade: #3f6b58;
+        --jade-soft: #e2eee5;
+        --gold: #b8893b;
+        --line: rgba(34, 31, 27, 0.14);
+        --card: #fbf6ea;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        background: var(--paper);
+        background-image:
+          radial-gradient(
+            circle at 12% 8%,
+            rgba(170, 59, 46, 0.06),
+            transparent 40%
+          ),
+          radial-gradient(
+            circle at 90% 85%,
+            rgba(63, 107, 88, 0.07),
+            transparent 45%
+          );
+        color: var(--ink);
+        font-family: "Space Grotesk", sans-serif;
+        min-height: 100vh;
+        -webkit-font-smoothing: antialiased;
+      }
+      .wrap {
+        max-width: 1080px;
+        margin: 0 auto;
+        padding: 28px 22px 80px;
+      }
+
+      /* ---------- HEADER ---------- */
+      header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-end;
+        gap: 20px;
+        flex-wrap: wrap;
+        border-bottom: 2px solid var(--ink);
+        padding-bottom: 18px;
+        margin-bottom: 26px;
+      }
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+      }
+      .seal {
+        width: 56px;
+        height: 56px;
+        border-radius: 6px;
+        background: var(--seal);
+        color: var(--paper);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-family: "Noto Serif SC", serif;
+        font-weight: 900;
+        font-size: 26px;
+        box-shadow: 0 3px 0 var(--seal-deep);
+        transform: rotate(-2deg);
+        flex-shrink: 0;
+      }
+      .brand h1 {
+        font-family: "Noto Serif SC", serif;
+        font-weight: 900;
+        font-size: clamp(24px, 3.4vw, 34px);
+        margin: 0;
+        letter-spacing: 0.2px;
+      }
+      .brand p {
+        margin: 2px 0 0;
+        color: var(--ink-soft);
+        font-size: 13.5px;
+        font-family: "JetBrains Mono", monospace;
+      }
+      .stat-strip {
+        display: flex;
+        gap: 22px;
+        text-align: right;
+        flex-wrap: wrap;
+      }
+      .stat {
+        min-width: 78px;
+      }
+      .stat .num {
+        font-family: "Noto Serif SC", serif;
+        font-weight: 900;
+        font-size: 26px;
+        color: var(--seal);
+        line-height: 1;
+      }
+      .stat .lbl {
+        font-size: 11px;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--ink-soft);
+      }
+
+      /* ---------- INTRO ---------- */
+      .intro {
+        display: grid;
+        grid-template-columns: 1.3fr 1fr;
+        gap: 28px;
+        margin-bottom: 34px;
+      }
+      @media (max-width: 760px) {
+        .intro {
+          grid-template-columns: 1fr;
+        }
+      }
+      .intro h2 {
+        font-family: "Noto Serif SC", serif;
+        font-size: clamp(22px, 3vw, 30px);
+        line-height: 1.25;
+        margin: 0 0 12px;
+        font-weight: 600;
+      }
+      .intro p {
+        color: var(--ink-soft);
+        line-height: 1.6;
+        font-size: 15px;
+        margin: 0 0 10px;
+      }
+      .method {
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 18px 20px;
+        font-size: 13.5px;
+        line-height: 1.65;
+        box-shadow: 3px 3px 0 var(--line);
+      }
+      .method b {
+        color: var(--seal);
+      }
+      .legend-row {
+        display: flex;
+        gap: 14px;
+        margin-top: 14px;
+        flex-wrap: wrap;
+      }
+      .legend {
+        font-family: "JetBrains Mono", monospace;
+        font-size: 11.5px;
+        color: var(--ink-soft);
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        display: inline-block;
+      }
+
+      /* ---------- CATEGORY RAIL ---------- */
+      .rail {
+        display: flex;
+        gap: 8px;
+        overflow-x: auto;
+        padding-bottom: 10px;
+        margin-bottom: 18px;
+        scrollbar-width: thin;
+      }
+      .chip {
+        flex-shrink: 0;
+        font-family: "JetBrains Mono", monospace;
+        font-size: 12px;
+        padding: 8px 14px;
+        border-radius: 999px;
+        border: 1px solid var(--ink);
+        background: transparent;
+        color: var(--ink);
+        cursor: pointer;
+        transition: 0.15s;
+        white-space: nowrap;
+      }
+      .chip:hover {
+        background: rgba(34, 31, 27, 0.06);
+      }
+      .chip.active {
+        background: var(--ink);
+        color: var(--paper);
+      }
+      .chip .ct {
+        opacity: 0.55;
+        margin-left: 6px;
+      }
+
+      /* ---------- DECK / STAGE ---------- */
+      .stage {
+        display: grid;
+        grid-template-columns: 1fr 230px;
+        gap: 24px;
+        align-items: start;
+      }
+      @media (max-width: 820px) {
+        .stage {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      .deck-area {
+        position: relative;
+      }
+      .progress-track {
+        height: 4px;
+        background: var(--line);
+        border-radius: 4px;
+        margin-bottom: 18px;
+        overflow: hidden;
+      }
+      .progress-fill {
+        height: 100%;
+        background: var(--seal);
+        width: 0%;
+        transition: width 0.25s ease;
+      }
+
+      .card {
+        background: var(--card);
+        border: 1px solid var(--ink);
+        border-radius: 16px;
+        min-height: 330px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        position: relative;
+        cursor: pointer;
+        padding: 30px 20px;
+        box-shadow: 6px 6px 0 var(--ink);
+        user-select: none;
+        transition: transform 0.12s ease;
+      }
+      .card:active {
+        transform: translateY(2px);
+        box-shadow: 4px 4px 0 var(--ink);
+      }
+      .card .cat-tag {
+        position: absolute;
+        top: 16px;
+        left: 18px;
+        font-family: "JetBrains Mono", monospace;
+        font-size: 11px;
+        color: var(--ink-soft);
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+      }
+      .card .idx-tag {
+        position: absolute;
+        top: 16px;
+        right: 18px;
+        font-family: "JetBrains Mono", monospace;
+        font-size: 11px;
+        color: var(--ink-soft);
+      }
+      .hanzi {
+        font-family: "Noto Serif SC", serif;
+        font-weight: 900;
+        font-size: clamp(48px, 9vw, 84px);
+        line-height: 1;
+        margin-bottom: 14px;
+        color: var(--ink);
+      }
+      .pinyin {
+        font-family: "Space Grotesk", sans-serif;
+        font-weight: 600;
+        font-size: clamp(24px, 3.6vw, 32px);
+        color: var(--seal);
+        margin-bottom: 18px;
+        letter-spacing: 0.01em;
+      }
+      .english {
+        font-size: clamp(22px, 3.2vw, 30px);
+        font-weight: 600;
+        color: var(--jade);
+        text-align: center;
+        min-height: 36px;
+      }
+      .step-rail {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 20px;
+        font-family: "JetBrains Mono", monospace;
+        font-size: 10.5px;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--ink-soft);
+      }
+      .step-pt {
+        padding: 4px 10px;
+        border-radius: 999px;
+        border: 1px solid var(--line);
+        transition: 0.15s;
+      }
+      .step-pt.active {
+        border-color: var(--ink);
+        color: var(--ink);
+        background: var(--paper);
+      }
+      .step-pt.done {
+        border-color: var(--jade);
+        color: var(--jade);
+        background: var(--jade-soft);
+      }
+      .step-arrow {
+        opacity: 0.4;
+      }
+      .flip-hint {
+        font-family: "JetBrains Mono", monospace;
+        font-size: 11px;
+        color: var(--ink-soft);
+        margin-top: 18px;
+        letter-spacing: 0.04em;
+      }
+      .english.hidden {
+        visibility: hidden;
+      }
+
+      .controls {
+        display: flex;
+        gap: 10px;
+        margin-top: 18px;
+        flex-wrap: wrap;
+      }
+      .btn {
+        font-family: "JetBrains Mono", monospace;
+        font-size: 12.5px;
+        border: 1px solid var(--ink);
+        background: var(--paper);
+        color: var(--ink);
+        padding: 10px 16px;
+        border-radius: 8px;
+        cursor: pointer;
+        box-shadow: 3px 3px 0 var(--ink);
+        transition: 0.1s;
+      }
+      .btn:hover {
+        transform: translate(-1px, -1px);
+        box-shadow: 4px 4px 0 var(--ink);
+      }
+      .btn:active {
+        transform: translate(0, 0);
+        box-shadow: 1px 1px 0 var(--ink);
+      }
+      .btn.primary {
+        background: var(--seal);
+        color: var(--paper);
+        border-color: var(--seal-deep);
+      }
+      .btn.ghost {
+        opacity: 0.7;
+      }
+      .btn.know {
+        border-color: var(--jade);
+        color: var(--jade);
+      }
+      .btn.again {
+        border-color: var(--gold);
+        color: var(--gold);
+      }
+
+      /* ---------- SIDE PANEL ---------- */
+      .panel {
+        background: var(--paper-deep);
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        padding: 18px;
+      }
+      .panel h3 {
+        font-family: "JetBrains Mono", monospace;
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--ink-soft);
+        margin: 0 0 12px;
+      }
+      .speed-opt {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        margin-bottom: 18px;
+      }
+      .speed-opt label {
+        font-size: 12.5px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        cursor: pointer;
+        padding: 6px 8px;
+        border-radius: 6px;
+        border: 1px solid transparent;
+      }
+      .speed-opt label.active {
+        border-color: var(--ink);
+        background: var(--card);
+      }
+      .mini-stats {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        font-family: "JetBrains Mono", monospace;
+        font-size: 12px;
+      }
+      .mini-stats .row {
+        display: flex;
+        justify-content: space-between;
+        color: var(--ink-soft);
+      }
+      .mini-stats .row b {
+        color: var(--ink);
+      }
+      .reset-link {
+        margin-top: 16px;
+        font-size: 11px;
+        color: var(--ink-soft);
+        text-decoration: underline;
+        cursor: pointer;
+        background: none;
+        border: none;
+        font-family: "JetBrains Mono", monospace;
+        padding: 0;
+      }
+
+      footer {
+        margin-top: 50px;
+        border-top: 1px solid var(--line);
+        padding-top: 18px;
+        font-family: "JetBrains Mono", monospace;
+        font-size: 11px;
+        color: var(--ink-soft);
+        display: flex;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      ::-webkit-scrollbar {
+        height: 6px;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: var(--line);
+        border-radius: 4px;
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .card,
+        .btn {
+          transition: none;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <header>
+        <div class="brand">
+          <div class="seal">学</div>
+          <div>
+            <h1>速成 Mandarin Sprint</h1>
+            <p>
+              pīnyīn · 拼音 · rapid-recall flashcards for the first ~1000 words
+            </p>
+          </div>
+        </div>
+        <div class="stat-strip">
+          <div class="stat">
+            <div class="num" id="statSeen">0</div>
+            <div class="lbl">Seen</div>
+          </div>
+          <div class="stat">
+            <div class="num" id="statKnow">0</div>
+            <div class="lbl">Know it</div>
+          </div>
+          <div class="stat">
+            <div class="num" id="statTotal">0</div>
+            <div class="lbl">In deck</div>
+          </div>
+        </div>
+      </header>
+
+      <section class="intro">
+        <div>
+          <h2>Drill the words that show up in 90% of real conversations.</h2>
+          <p>
+            This deck is built from the highest-frequency core vocabulary of
+            Mandarin — numbers, pronouns, time words, family terms, food, common
+            verbs, adjectives, question words and survival phrases — the
+            backbone you need before the long tail of ~1000 everyday words and
+            phrases. Categories are arranged so the words you'll use in your
+            <i>first conversation</i> come first.
+          </p>
+          <p>
+            Pinyin is shown in a clean, clearly legible typeface in red — the
+            tone marks are real, so read them aloud as you go.
+          </p>
+        </div>
+        <div class="method">
+          <b>How rapid recall works:</b><br />
+          1. A card shows 汉字 + pīnyīn only.<br />
+          2. Say the English meaning out loud <i>before</i> you look.<br />
+          3. Tap the card (or hit <b>Space</b>) to reveal it.<br />
+          4. Mark <b>✓ Know it</b> or <b>↻ Again</b> — missed cards resurface
+          sooner.<br />
+          5. Set a pace below and let the deck auto-advance for true rapid-fire
+          drilling.
+          <div class="legend-row">
+            <div class="legend">
+              <span class="dot" style="background: var(--seal)"></span>pīnyīn
+            </div>
+            <div class="legend">
+              <span class="dot" style="background: var(--jade)"></span>English
+            </div>
+            <div class="legend">
+              <span class="dot" style="background: var(--gold)"></span>needs
+              review
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div class="rail" id="catRail"></div>
+
+      <div class="stage">
+        <div class="deck-area">
+          <div class="progress-track">
+            <div class="progress-fill" id="progressFill"></div>
+          </div>
+
+          <div class="card" id="card" tabindex="0">
+            <div class="cat-tag" id="catTag">—</div>
+            <div class="idx-tag" id="idxTag">0 / 0</div>
+            <div class="step-rail">
+              <span class="step-pt active">1 · character</span>
+              <span class="step-arrow">→</span>
+              <span class="step-pt active">2 · pinyin</span>
+              <span class="step-arrow">→</span>
+              <span class="step-pt" id="step3">3 · meaning</span>
+            </div>
+            <div class="hanzi" id="hanzi">你好</div>
+            <div class="pinyin" id="pinyinFancy">nǐ hǎo</div>
+            <div class="english hidden" id="english">hello</div>
+            <div class="flip-hint" id="flipHint">
+              tap card or press space to reveal
+            </div>
+          </div>
+
+          <div class="controls">
+            <button class="btn ghost" id="btnPrev">&larr; back</button>
+            <button class="btn primary" id="btnFlip">flip (space)</button>
+            <button class="btn again" id="btnAgain">↻ again</button>
+            <button class="btn know" id="btnKnow">✓ know it</button>
+            <button class="btn ghost" id="btnShuffle">⤮ shuffle</button>
+          </div>
+        </div>
+
+        <div class="panel">
+          <h3>Sprint speed</h3>
+          <div class="speed-opt" id="speedOpts">
+            <label data-v="0"
+              ><input type="radio" name="spd" value="0" />Manual — I'll flip
+              myself</label
+            >
+            <label data-v="5000"
+              ><input type="radio" name="spd" value="5000" />Relaxed —
+              5s/card</label
+            >
+            <label data-v="3000"
+              ><input type="radio" name="spd" value="3000" />Standard —
+              3s/card</label
+            >
+            <label data-v="1500"
+              ><input type="radio" name="spd" value="1500" />Rapid fire —
+              1.5s/card</label
+            >
+          </div>
+          <h3>This session</h3>
+          <div class="mini-stats">
+            <div class="row">
+              <span>Category</span><b id="panelCat">All words</b>
+            </div>
+            <div class="row">
+              <span>Cards remaining</span><b id="panelRemaining">0</b>
+            </div>
+            <div class="row">
+              <span>Marked again</span><b id="panelAgain">0</b>
+            </div>
+            <div class="row"><span>Accuracy</span><b id="panelAcc">—</b></div>
+          </div>
+          <button class="reset-link" id="resetBtn">reset session stats</button>
+        </div>
+      </div>
+
+      <footer>
+        <span
+          >构建于 Claude · vocabulary curated for absolute beginners (HSK 1–2
+          core range)</span
+        >
+        <span id="footCount">0 words loaded</span>
+      </footer>
+    </div>
+
+    <script>
+      /* ============== VOCAB DATA ============== */
+      const manual = [
+        // Greetings & politeness
+        ["你好", "nǐ hǎo", "ni3 hao3", "hello", "Greetings"],
+        ["你好吗", "nǐ hǎo ma", "ni3 hao3 ma", "how are you", "Greetings"],
+        [
+          "早上好",
+          "zǎoshang hǎo",
+          "zao3shang hao3",
+          "good morning",
+          "Greetings",
+        ],
+        [
+          "晚上好",
+          "wǎnshang hǎo",
+          "wan3shang hao3",
+          "good evening",
+          "Greetings",
+        ],
+        ["晚安", "wǎn ān", "wan3 an1", "good night", "Greetings"],
+        ["再见", "zàijiàn", "zai4jian4", "goodbye", "Greetings"],
+        ["谢谢", "xièxie", "xie4xie", "thank you", "Greetings"],
+        ["不客气", "bú kèqi", "bu2 ke4qi", "you're welcome", "Greetings"],
+        ["对不起", "duìbuqǐ", "dui4buqi3", "sorry", "Greetings"],
+        [
+          "没关系",
+          "méi guānxi",
+          "mei2 guan1xi",
+          "it's okay / no problem",
+          "Greetings",
+        ],
+        ["请", "qǐng", "qing3", "please", "Greetings"],
+        ["欢迎", "huānyíng", "huan1ying2", "welcome", "Greetings"],
+        [
+          "很高兴认识你",
+          "hěn gāoxìng rènshi nǐ",
+          "hen3 gao1xing4 ren4shi ni3",
+          "nice to meet you",
+          "Greetings",
+        ],
+        [
+          "再说一遍",
+          "zài shuō yí biàn",
+          "zai4 shuo1 yi2 bian4",
+          "say it again",
+          "Greetings",
+        ],
+        ["慢一点", "màn yìdiǎn", "man4 yi1dian3", "a bit slower", "Greetings"],
+        [
+          "我不明白",
+          "wǒ bù míngbai",
+          "wo3 bu4 ming2bai",
+          "I don't understand",
+          "Greetings",
+        ],
+        [
+          "听不懂",
+          "tīng bu dǒng",
+          "ting1 bu dong3",
+          "can't understand (by hearing)",
+          "Greetings",
+        ],
+        [
+          "祝你好运",
+          "zhù nǐ hǎo yùn",
+          "zhu4 ni3 hao3 yun4",
+          "good luck",
+          "Greetings",
+        ],
+        [
+          "生日快乐",
+          "shēngrì kuàilè",
+          "sheng1ri4 kuai4le4",
+          "happy birthday",
+          "Greetings",
+        ],
+        ["恭喜", "gōngxǐ", "gong1xi3", "congratulations", "Greetings"],
+        // Pronouns
+        ["我", "wǒ", "wo3", "I / me", "Pronouns"],
+        ["你", "nǐ", "ni3", "you", "Pronouns"],
+        ["他", "tā", "ta1", "he / him", "Pronouns"],
+        ["她", "tā", "ta1", "she / her", "Pronouns"],
+        ["它", "tā", "ta1", "it", "Pronouns"],
+        ["我们", "wǒmen", "wo3men", "we / us", "Pronouns"],
+        ["你们", "nǐmen", "ni3men", "you (plural)", "Pronouns"],
+        ["他们", "tāmen", "ta1men", "they / them", "Pronouns"],
+        ["这", "zhè", "zhe4", "this", "Pronouns"],
+        ["那", "nà", "na4", "that", "Pronouns"],
+        ["这里", "zhèlǐ", "zhe4li3", "here", "Pronouns"],
+        ["那里", "nàlǐ", "na4li3", "there", "Pronouns"],
+        ["谁", "shéi", "shei2", "who", "Pronouns"],
+        ["什么", "shénme", "shen2me", "what", "Pronouns"],
+        ["哪", "nǎ", "na3", "which", "Pronouns"],
+        ["哪里", "nǎlǐ", "na3li3", "where", "Pronouns"],
+        ["为什么", "wèishénme", "wei4shen2me", "why", "Pronouns"],
+        ["怎么", "zěnme", "zen3me", "how", "Pronouns"],
+        ["什么时候", "shénme shíhou", "shen2me shi2hou", "when", "Pronouns"],
+        ["多少", "duōshao", "duo1shao", "how much / how many", "Pronouns"],
+        ["几", "jǐ", "ji3", "how many (small numbers)", "Pronouns"],
+        ["自己", "zìjǐ", "zi4ji3", "oneself", "Pronouns"],
+        ["大家", "dàjiā", "da4jia1", "everyone", "Pronouns"],
+        ["别人", "biérén", "bie2ren2", "other people", "Pronouns"],
+        // Numbers handled programmatically below
+        // Family
+        ["家", "jiā", "jia1", "family / home", "Family"],
+        ["爸爸", "bàba", "ba4ba", "dad", "Family"],
+        ["妈妈", "māma", "ma1ma", "mom", "Family"],
+        ["爷爷", "yéye", "ye2ye", "grandfather (paternal)", "Family"],
+        ["奶奶", "nǎinai", "nai3nai", "grandmother (paternal)", "Family"],
+        ["外公", "wàigōng", "wai4gong1", "grandfather (maternal)", "Family"],
+        ["外婆", "wàipó", "wai4po2", "grandmother (maternal)", "Family"],
+        ["哥哥", "gēge", "ge1ge", "older brother", "Family"],
+        ["弟弟", "dìdi", "di4di", "younger brother", "Family"],
+        ["姐姐", "jiějiě", "jie3jie", "older sister", "Family"],
+        ["妹妹", "mèimei", "mei4mei", "younger sister", "Family"],
+        ["儿子", "érzi", "er2zi", "son", "Family"],
+        ["女儿", "nǚ'ér", "nv3er2", "daughter", "Family"],
+        ["丈夫", "zhàngfu", "zhang4fu", "husband", "Family"],
+        ["妻子", "qīzi", "qi1zi", "wife", "Family"],
+        ["朋友", "péngyou", "peng2you", "friend", "Family"],
+        ["孩子", "háizi", "hai2zi", "child", "Family"],
+        ["男人", "nánrén", "nan2ren2", "man", "Family"],
+        ["女人", "nǚrén", "nv3ren2", "woman", "Family"],
+        ["老师", "lǎoshī", "lao3shi1", "teacher", "Family"],
+        ["学生", "xuésheng", "xue2sheng", "student", "Family"],
+        // Time
+        ["今天", "jīntiān", "jin1tian1", "today", "Time"],
+        ["明天", "míngtiān", "ming2tian1", "tomorrow", "Time"],
+        ["昨天", "zuótiān", "zuo2tian1", "yesterday", "Time"],
+        ["现在", "xiànzài", "xian4zai4", "now", "Time"],
+        ["以后", "yǐhòu", "yi3hou4", "later / afterward", "Time"],
+        ["以前", "yǐqián", "yi3qian2", "before / previously", "Time"],
+        ["早上", "zǎoshang", "zao3shang", "morning", "Time"],
+        ["中午", "zhōngwǔ", "zhong1wu3", "noon", "Time"],
+        ["下午", "xiàwǔ", "xia4wu3", "afternoon", "Time"],
+        ["晚上", "wǎnshang", "wan3shang", "evening", "Time"],
+        ["年", "nián", "nian2", "year", "Time"],
+        ["月", "yuè", "yue4", "month", "Time"],
+        ["星期", "xīngqī", "xing1qi1", "week", "Time"],
+        ["天", "tiān", "tian1", "day", "Time"],
+        ["小时", "xiǎoshí", "xiao3shi2", "hour", "Time"],
+        ["分钟", "fēnzhōng", "fen1zhong1", "minute", "Time"],
+        ["星期一", "xīngqīyī", "xing1qi1yi1", "Monday", "Time"],
+        ["星期二", "xīngqī'èr", "xing1qi1er4", "Tuesday", "Time"],
+        ["星期三", "xīngqīsān", "xing1qi1san1", "Wednesday", "Time"],
+        ["星期四", "xīngqīsì", "xing1qi1si4", "Thursday", "Time"],
+        ["星期五", "xīngqīwǔ", "xing1qi1wu3", "Friday", "Time"],
+        ["星期六", "xīngqīliù", "xing1qi1liu4", "Saturday", "Time"],
+        ["星期日", "xīngqīrì", "xing1qi1ri4", "Sunday", "Time"],
+        ["一月", "yī yuè", "yi1 yue4", "January", "Time"],
+        ["二月", "èr yuè", "er4 yue4", "February", "Time"],
+        ["三月", "sān yuè", "san1 yue4", "March", "Time"],
+        ["四月", "sì yuè", "si4 yue4", "April", "Time"],
+        ["五月", "wǔ yuè", "wu3 yue4", "May", "Time"],
+        ["六月", "liù yuè", "liu4 yue4", "June", "Time"],
+        ["七月", "qī yuè", "qi1 yue4", "July", "Time"],
+        ["八月", "bā yuè", "ba1 yue4", "August", "Time"],
+        ["九月", "jiǔ yuè", "jiu3 yue4", "September", "Time"],
+        ["十月", "shí yuè", "shi2 yue4", "October", "Time"],
+        ["十一月", "shíyī yuè", "shi2yi1 yue4", "November", "Time"],
+        ["十二月", "shí'èr yuè", "shi2er4 yue4", "December", "Time"],
+        // Food
+        ["吃", "chī", "chi1", "to eat", "Food"],
+        ["喝", "hē", "he1", "to drink", "Food"],
+        ["饭", "fàn", "fan4", "rice / meal", "Food"],
+        ["米饭", "mǐfàn", "mi3fan4", "cooked rice", "Food"],
+        ["面条", "miàntiáo", "mian4tiao2", "noodles", "Food"],
+        ["水", "shuǐ", "shui3", "water", "Food"],
+        ["茶", "chá", "cha2", "tea", "Food"],
+        ["咖啡", "kāfēi", "ka1fei1", "coffee", "Food"],
+        ["牛奶", "niúnǎi", "niu2nai3", "milk", "Food"],
+        ["鸡蛋", "jīdàn", "ji1dan4", "egg", "Food"],
+        ["面包", "miànbāo", "mian4bao1", "bread", "Food"],
+        ["肉", "ròu", "rou4", "meat", "Food"],
+        ["鸡肉", "jīròu", "ji1rou4", "chicken meat", "Food"],
+        ["牛肉", "niúròu", "niu2rou4", "beef", "Food"],
+        ["猪肉", "zhūròu", "zhu1rou4", "pork", "Food"],
+        ["鱼", "yú", "yu2", "fish", "Food"],
+        ["蔬菜", "shūcài", "shu1cai4", "vegetables", "Food"],
+        ["水果", "shuǐguǒ", "shui3guo3", "fruit", "Food"],
+        ["苹果", "píngguǒ", "ping2guo3", "apple", "Food"],
+        ["香蕉", "xiāngjiāo", "xiang1jiao1", "banana", "Food"],
+        ["米", "mǐ", "mi3", "rice (uncooked)", "Food"],
+        ["糖", "táng", "tang2", "sugar / candy", "Food"],
+        ["盐", "yán", "yan2", "salt", "Food"],
+        ["菜单", "càidān", "cai4dan1", "menu", "Food"],
+        ["好吃", "hǎochī", "hao3chi1", "tasty", "Food"],
+        ["饿", "è", "e4", "hungry", "Food"],
+        ["渴", "kě", "ke3", "thirsty", "Food"],
+        ["饱", "bǎo", "bao3", "full (after eating)", "Food"],
+        ["餐厅", "cāntīng", "can1ting1", "restaurant", "Food"],
+        ["买单", "mǎidān", "mai3dan1", "pay the bill", "Food"],
+        // Colors
+        ["颜色", "yánsè", "yan2se4", "color", "Colors"],
+        ["红色", "hóngsè", "hong2se4", "red", "Colors"],
+        ["黄色", "huángsè", "huang2se4", "yellow", "Colors"],
+        ["蓝色", "lánsè", "lan2se4", "blue", "Colors"],
+        ["绿色", "lǜsè", "lv4se4", "green", "Colors"],
+        ["黑色", "hēisè", "hei1se4", "black", "Colors"],
+        ["白色", "báisè", "bai2se4", "white", "Colors"],
+        ["灰色", "huīsè", "hui1se4", "gray", "Colors"],
+        ["紫色", "zǐsè", "zi3se4", "purple", "Colors"],
+        ["粉色", "fěnsè", "fen3se4", "pink", "Colors"],
+        ["橙色", "chéngsè", "cheng2se4", "orange", "Colors"],
+        // Common verbs
+        ["是", "shì", "shi4", "to be", "Verbs"],
+        ["有", "yǒu", "you3", "to have", "Verbs"],
+        ["要", "yào", "yao4", "to want / will", "Verbs"],
+        ["去", "qù", "qu4", "to go", "Verbs"],
+        ["来", "lái", "lai2", "to come", "Verbs"],
+        ["做", "zuò", "zuo4", "to do / make", "Verbs"],
+        ["看", "kàn", "kan4", "to look / watch", "Verbs"],
+        ["听", "tīng", "ting1", "to listen", "Verbs"],
+        ["说", "shuō", "shuo1", "to speak / say", "Verbs"],
+        ["读", "dú", "du2", "to read", "Verbs"],
+        ["写", "xiě", "xie3", "to write", "Verbs"],
+        ["走", "zǒu", "zou3", "to walk / leave", "Verbs"],
+        ["跑", "pǎo", "pao3", "to run", "Verbs"],
+        ["坐", "zuò", "zuo4", "to sit", "Verbs"],
+        ["站", "zhàn", "zhan4", "to stand", "Verbs"],
+        ["睡觉", "shuìjiào", "shui4jiao4", "to sleep", "Verbs"],
+        ["起床", "qǐchuáng", "qi3chuang2", "to get up", "Verbs"],
+        ["工作", "gōngzuò", "gong1zuo4", "to work / job", "Verbs"],
+        ["学习", "xuéxí", "xue2xi2", "to study", "Verbs"],
+        ["玩", "wán", "wan2", "to play", "Verbs"],
+        ["买", "mǎi", "mai3", "to buy", "Verbs"],
+        ["卖", "mài", "mai4", "to sell", "Verbs"],
+        ["给", "gěi", "gei3", "to give", "Verbs"],
+        ["拿", "ná", "na2", "to take / hold", "Verbs"],
+        ["找", "zhǎo", "zhao3", "to look for", "Verbs"],
+        ["帮助", "bāngzhù", "bang1zhu4", "to help", "Verbs"],
+        ["爱", "ài", "ai4", "to love", "Verbs"],
+        ["喜欢", "xǐhuan", "xi3huan", "to like", "Verbs"],
+        ["想", "xiǎng", "xiang3", "to think / want to", "Verbs"],
+        ["知道", "zhīdào", "zhi1dao4", "to know (a fact)", "Verbs"],
+        ["认识", "rènshi", "ren4shi", "to know (a person)", "Verbs"],
+        ["懂", "dǒng", "dong3", "to understand", "Verbs"],
+        ["记得", "jìde", "ji4de", "to remember", "Verbs"],
+        ["忘记", "wàngjì", "wang4ji4", "to forget", "Verbs"],
+        ["开始", "kāishǐ", "kai1shi3", "to start", "Verbs"],
+        ["结束", "jiéshù", "jie2shu4", "to end", "Verbs"],
+        [
+          "打电话",
+          "dǎ diànhuà",
+          "da3 dian4hua4",
+          "to make a phone call",
+          "Verbs",
+        ],
+        ["开车", "kāichē", "kai1che1", "to drive", "Verbs"],
+        ["飞", "fēi", "fei1", "to fly", "Verbs"],
+        ["住", "zhù", "zhu4", "to live / reside", "Verbs"],
+        ["回家", "huí jiā", "hui2 jia1", "to go home", "Verbs"],
+        ["旅行", "lǜxíng", "lv3xing2", "to travel", "Verbs"],
+        ["休息", "xiūxi", "xiu1xi", "to rest", "Verbs"],
+        ["笑", "xiào", "xiao4", "to laugh / smile", "Verbs"],
+        ["哭", "kū", "ku1", "to cry", "Verbs"],
+        ["唱歌", "chànggē", "chang4ge1", "to sing", "Verbs"],
+        ["跳舞", "tiàowǔ", "tiao4wu3", "to dance", "Verbs"],
+        ["打开", "dǎkāi", "da3kai1", "to open", "Verbs"],
+        ["关", "guān", "guan1", "to close", "Verbs"],
+        ["穿", "chuān", "chuan1", "to wear", "Verbs"],
+        ["洗", "xǐ", "xi3", "to wash", "Verbs"],
+        // Adjectives
+        ["大", "dà", "da4", "big", "Adjectives"],
+        ["小", "xiǎo", "xiao3", "small", "Adjectives"],
+        ["多", "duō", "duo1", "many / much", "Adjectives"],
+        ["少", "shǎo", "shao3", "few / little", "Adjectives"],
+        ["好", "hǎo", "hao3", "good", "Adjectives"],
+        ["坏", "huài", "huai4", "bad", "Adjectives"],
+        ["新", "xīn", "xin1", "new", "Adjectives"],
+        ["旧", "jiù", "jiu4", "old (object)", "Adjectives"],
+        ["老", "lǎo", "lao3", "old (person/age)", "Adjectives"],
+        ["年轻", "niánqīng", "nian2qing1", "young", "Adjectives"],
+        ["快", "kuài", "kuai4", "fast", "Adjectives"],
+        ["慢", "màn", "man4", "slow", "Adjectives"],
+        ["高", "gāo", "gao1", "tall / high", "Adjectives"],
+        ["矮", "ǎi", "ai3", "short (height)", "Adjectives"],
+        ["长", "cháng", "chang2", "long", "Adjectives"],
+        ["短", "duǎn", "duan3", "short (length)", "Adjectives"],
+        ["重", "zhòng", "zhong4", "heavy", "Adjectives"],
+        ["轻", "qīng", "qing1", "light (weight)", "Adjectives"],
+        ["贵", "guì", "gui4", "expensive", "Adjectives"],
+        ["便宜", "piányi", "pian2yi", "cheap", "Adjectives"],
+        ["漂亮", "piàoliang", "piao4liang", "pretty", "Adjectives"],
+        ["丑", "chǒu", "chou3", "ugly", "Adjectives"],
+        ["热", "rè", "re4", "hot", "Adjectives"],
+        ["冷", "lěng", "leng3", "cold", "Adjectives"],
+        ["暖", "nuǎn", "nuan3", "warm", "Adjectives"],
+        ["干净", "gānjìng", "gan1jing4", "clean", "Adjectives"],
+        ["脏", "zāng", "zang1", "dirty", "Adjectives"],
+        ["容易", "róngyì", "rong2yi4", "easy", "Adjectives"],
+        ["难", "nán", "nan2", "difficult", "Adjectives"],
+        ["重要", "zhòngyào", "zhong4yao4", "important", "Adjectives"],
+        ["有趣", "yǒuqù", "you3qu4", "interesting", "Adjectives"],
+        ["无聊", "wúliáo", "wu2liao2", "boring", "Adjectives"],
+        ["开心", "kāixīn", "kai1xin1", "happy", "Adjectives"],
+        ["难过", "nánguò", "nan2guo4", "sad", "Adjectives"],
+        ["生气", "shēngqì", "sheng1qi4", "angry", "Adjectives"],
+        ["累", "lèi", "lei4", "tired", "Adjectives"],
+        ["饱满", "bǎomǎn", "bao3man3", "full / plump", "Adjectives"],
+        ["安全", "ānquán", "an1quan2", "safe", "Adjectives"],
+        ["危险", "wēixiǎn", "wei1xian3", "dangerous", "Adjectives"],
+        ["近", "jìn", "jin4", "near", "Adjectives"],
+        ["远", "yuǎn", "yuan3", "far", "Adjectives"],
+        // Places
+        ["地方", "dìfang", "di4fang", "place", "Places"],
+        ["学校", "xuéxiào", "xue2xiao4", "school", "Places"],
+        ["医院", "yīyuàn", "yi1yuan4", "hospital", "Places"],
+        ["商店", "shāngdiàn", "shang1dian4", "shop", "Places"],
+        ["银行", "yínháng", "yin2hang2", "bank", "Places"],
+        ["机场", "jīchǎng", "ji1chang3", "airport", "Places"],
+        ["车站", "chēzhàn", "che1zhan4", "station", "Places"],
+        ["公园", "gōngyuán", "gong1yuan2", "park", "Places"],
+        ["城市", "chéngshì", "cheng2shi4", "city", "Places"],
+        ["国家", "guójiā", "guo2jia1", "country", "Places"],
+        ["路", "lù", "lu4", "road", "Places"],
+        ["街", "jiē", "jie1", "street", "Places"],
+        ["房间", "fángjiān", "fang2jian1", "room", "Places"],
+        ["洗手间", "xǐshǒujiān", "xi3shou3jian1", "bathroom", "Places"],
+        ["厨房", "chúfáng", "chu2fang2", "kitchen", "Places"],
+        ["酒店", "jiǔdiàn", "jiu3dian4", "hotel", "Places"],
+        ["中国", "Zhōngguó", "zhong1guo2", "China", "Places"],
+        ["美国", "Měiguó", "mei3guo2", "United States", "Places"],
+        // Question / connector / survival phrases
+        ["可以吗", "kěyǐ ma", "ke3yi3 ma", "is that okay?", "Phrases"],
+        ["我可以", "wǒ kěyǐ", "wo3 ke3yi3", "I can / may I", "Phrases"],
+        [
+          "多少钱",
+          "duōshao qián",
+          "duo1shao qian2",
+          "how much money",
+          "Phrases",
+        ],
+        ["在哪里", "zài nǎlǐ", "zai4 na3li3", "where is it", "Phrases"],
+        ["几点了", "jǐ diǎn le", "ji3 dian3 le", "what time is it", "Phrases"],
+        [
+          "我要这个",
+          "wǒ yào zhège",
+          "wo3 yao4 zhe4ge",
+          "I want this one",
+          "Phrases",
+        ],
+        [
+          "帮我一下",
+          "bāng wǒ yíxià",
+          "bang1 wo3 yi2xia4",
+          "help me for a moment",
+          "Phrases",
+        ],
+        ["我饿了", "wǒ è le", "wo3 e4 le", "I'm hungry", "Phrases"],
+        ["我累了", "wǒ lèi le", "wo3 lei4 le", "I'm tired", "Phrases"],
+        ["我迷路了", "wǒ mílù le", "wo3 mi2lu4 le", "I'm lost", "Phrases"],
+        [
+          "祝贺你",
+          "zhùhè nǐ",
+          "zhu4he4 ni3",
+          "congratulations to you",
+          "Phrases",
+        ],
+        ["没问题", "méi wèntí", "mei2 wen4ti2", "no problem", "Phrases"],
+        ["当然", "dāngrán", "dang1ran2", "of course", "Phrases"],
+        ["也许", "yěxǔ", "ye3xu3", "maybe", "Phrases"],
+        ["一定", "yídìng", "yi2ding4", "definitely", "Phrases"],
+        ["而且", "érqiě", "er2qie3", "and also / moreover", "Phrases"],
+        ["但是", "dànshì", "dan4shi4", "but", "Phrases"],
+        ["因为", "yīnwèi", "yin1wei4", "because", "Phrases"],
+        ["所以", "suǒyǐ", "suo3yi3", "therefore", "Phrases"],
+        ["如果", "rúguǒ", "ru2guo3", "if", "Phrases"],
+        ["然后", "ránhòu", "ran2hou4", "then / afterward", "Phrases"],
+        ["还有", "háiyǒu", "hai2you3", "also / and", "Phrases"],
+        ["可能", "kěnéng", "ke3neng2", "possibly", "Phrases"],
+        ["一起", "yìqǐ", "yi2qi3", "together", "Phrases"],
+        ["已经", "yǐjīng", "yi3jing1", "already", "Phrases"],
+        ["还没", "hái méi", "hai2 mei2", "not yet", "Phrases"],
+        ["马上", "mǎshàng", "ma3shang4", "right away", "Phrases"],
+        ["一直", "yìzhí", "yi2zhi2", "always / continuously", "Phrases"],
+        [
+          "从来",
+          "cónglái",
+          "cong2lai2",
+          "ever / never (with 不/没)",
+          "Phrases",
+        ],
+        ["非常", "fēicháng", "fei1chang2", "extremely", "Phrases"],
+        ["有点", "yǒudiǎn", "you3dian3", "a little / somewhat", "Phrases"],
+        ["太...了", "tài...le", "tai4...le", "too / so (extreme)", "Phrases"],
+        ["不要", "búyào", "bu2yao4", "don't", "Phrases"],
+        ["可以", "kěyǐ", "ke3yi3", "may / can / okay", "Phrases"],
+        ["不行", "bùxíng", "bu4xing2", "not allowed / won't work", "Phrases"],
+        ["小心", "xiǎoxīn", "xiao3xin1", "be careful", "Phrases"],
+        ["加油", "jiāyóu", "jia1you2", "keep going / go for it", "Phrases"],
+      ];
+
+      // Programmatic numbers 0–100
+      const numLabel = (n) => n;
+      const digits = [
+        "零",
+        "一",
+        "二",
+        "三",
+        "四",
+        "五",
+        "六",
+        "七",
+        "八",
+        "九",
+      ];
+      const dpy = [
+        "líng",
+        "yī",
+        "èr",
+        "sān",
+        "sì",
+        "wǔ",
+        "liù",
+        "qī",
+        "bā",
+        "jiǔ",
+      ];
+      const dplain = [
+        "ling2",
+        "yi1",
+        "er4",
+        "san1",
+        "si4",
+        "wu3",
+        "liu4",
+        "qi1",
+        "ba1",
+        "jiu3",
+      ];
+      function numberWord(n) {
+        if (n < 10) return [digits[n], dpy[n], dplain[n]];
+        if (n === 10) return ["十", "shí", "shi2"];
+        if (n < 20)
+          return [
+            "十" + digits[n - 10],
+            "shí" + dpy[n - 10],
+            "shi2" + dplain[n - 10],
+          ];
+        if (n % 10 === 0)
+          return [
+            digits[Math.floor(n / 10)] + "十",
+            dpy[Math.floor(n / 10)] + "shí",
+            dplain[Math.floor(n / 10)] + "shi2",
+          ];
+        return [
+          digits[Math.floor(n / 10)] + "十" + digits[n % 10],
+          dpy[Math.floor(n / 10)] + "shí" + dpy[n % 10],
+          dplain[Math.floor(n / 10)] + "shi2" + dplain[n % 10],
+        ];
+      }
+      const numbers = [];
+      for (let n = 0; n <= 100; n++) {
+        if (n === 100) {
+          numbers.push(["一百", "yìbǎi", "yi4bai3", "100", "Numbers"]);
+          continue;
+        }
+        const [hz, py, pl] = numberWord(n);
+        numbers.push([hz, py, pl, String(n), "Numbers"]);
+      }
+
+      const VOCAB = manual.concat(numbers).map((row, i) => ({
+        hz: row[0],
+        py: row[1],
+        plain: row[2],
+        en: row[3],
+        cat: row[4],
+        id: i,
+      }));
+
+      /* ============== STATE ============== */
+      let deck = [...VOCAB];
+      let order = shuffleArr([...deck.keys()]);
+      let pos = 0;
+      let flipped = false;
+      let seenSet = new Set();
+      let knowSet = new Set();
+      let againCount = 0;
+      let answeredCount = 0;
+      let activeCat = "All";
+      let timer = null;
+      let speed = 0;
+
+      function shuffleArr(arr) {
+        for (let i = arr.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [arr[i], arr[j]] = [arr[j], arr[i]];
+        }
+        return arr;
+      }
+
+      /* ============== DOM ============== */
+      const el = (id) => document.getElementById(id);
+      const cardEl = el("card");
+      const hanziEl = el("hanzi");
+      const pinyinFancyEl = el("pinyinFancy");
+      const englishEl = el("english");
+      const catTagEl = el("catTag");
+      const idxTagEl = el("idxTag");
+      const flipHintEl = el("flipHint");
+      const progressFillEl = el("progressFill");
+      const catRail = el("catRail");
+
+      const categories = [
+        "All",
+        ...Array.from(new Set(VOCAB.map((v) => v.cat))),
+      ];
+      categories.forEach((cat) => {
+        const count =
+          cat === "All"
+            ? VOCAB.length
+            : VOCAB.filter((v) => v.cat === cat).length;
+        const chip = document.createElement("button");
+        chip.className = "chip" + (cat === "All" ? " active" : "");
+        chip.innerHTML = cat + ` <span class="ct">${count}</span>`;
+        chip.onclick = () => setCategory(cat, chip);
+        catRail.appendChild(chip);
+      });
+
+      function setCategory(cat, chipEl) {
+        activeCat = cat;
+        [...catRail.children].forEach((c) => c.classList.remove("active"));
+        chipEl.classList.add("active");
+        deck = cat === "All" ? [...VOCAB] : VOCAB.filter((v) => v.cat === cat);
+        order = shuffleArr([...deck.keys()]);
+        pos = 0;
+        answeredCount = 0;
+        againCount = 0;
+        el("panelCat").textContent = cat === "All" ? "All words" : cat;
+        render();
+      }
+
+      function currentCard() {
+        return deck[order[pos]];
+      }
+
+      function render() {
+        const card = currentCard();
+        flipped = false;
+        hanziEl.textContent = card.hz;
+        pinyinFancyEl.textContent = card.py;
+        englishEl.textContent = card.en;
+        englishEl.classList.add("hidden");
+        flipHintEl.textContent = "tap card or press space to reveal";
+        el("step3").className = "step-pt";
+        catTagEl.textContent = card.cat;
+        idxTagEl.textContent = pos + 1 + " / " + deck.length;
+        progressFillEl.style.width = ((pos + 1) / deck.length) * 100 + "%";
+        seenSet.add(card.id);
+        updateStats();
+      }
+
+      function flip() {
+        flipped = !flipped;
+        englishEl.classList.toggle("hidden", !flipped);
+        flipHintEl.textContent = flipped
+          ? "got it? mark know / again →"
+          : "tap card or press space to reveal";
+        el("step3").className = flipped ? "step-pt done" : "step-pt";
+      }
+
+      function advance(markKnow) {
+        if (markKnow === true) knowSet.add(currentCard().id);
+        if (markKnow === false) {
+          againCount++;
+        }
+        if (markKnow !== undefined) answeredCount++;
+        pos = (pos + 1) % deck.length;
+        if (pos === 0) order = shuffleArr([...deck.keys()]);
+        render();
+      }
+
+      function goBack() {
+        pos = (pos - 1 + deck.length) % deck.length;
+        render();
+      }
+
+      function updateStats() {
+        el("statSeen").textContent = seenSet.size;
+        el("statKnow").textContent = knowSet.size;
+        el("statTotal").textContent = VOCAB.length;
+        el("panelRemaining").textContent =
+          deck.length - (pos + 1) >= 0 ? deck.length - (pos + 1) : 0;
+        el("panelAgain").textContent = againCount;
+        el("panelAcc").textContent = answeredCount
+          ? Math.round(((answeredCount - againCount) / answeredCount) * 100) +
+            "%"
+          : "—";
+        el("footCount").textContent = VOCAB.length + " words & phrases loaded";
+      }
+
+      /* ============== AUTO-ADVANCE ============== */
+      function setSpeed(ms) {
+        speed = ms;
+        clearInterval(timer);
+        if (speed > 0) {
+          timer = setInterval(() => {
+            if (!flipped) flip();
+            else advance(undefined);
+          }, speed);
+        }
+      }
+
+      document.querySelectorAll("#speedOpts label").forEach((label) => {
+        label.addEventListener("click", () => {
+          document
+            .querySelectorAll("#speedOpts label")
+            .forEach((l) => l.classList.remove("active"));
+          label.classList.add("active");
+          label.querySelector("input").checked = true;
+          setSpeed(Number(label.dataset.v));
+        });
+      });
+      document
+        .querySelector('#speedOpts label[data-v="0"]')
+        .classList.add("active");
+      document.querySelector('#speedOpts label[data-v="0"] input').checked =
+        true;
+
+      /* ============== EVENTS ============== */
+      cardEl.addEventListener("click", flip);
+      el("btnFlip").addEventListener("click", flip);
+      el("btnKnow").addEventListener("click", () => advance(true));
+      el("btnAgain").addEventListener("click", () => advance(false));
+      el("btnPrev").addEventListener("click", goBack);
+      el("btnShuffle").addEventListener("click", () => {
+        order = shuffleArr([...deck.keys()]);
+        pos = 0;
+        render();
+      });
+      el("resetBtn").addEventListener("click", () => {
+        seenSet.clear();
+        knowSet.clear();
+        againCount = 0;
+        answeredCount = 0;
+        updateStats();
+      });
+
+      document.addEventListener("keydown", (e) => {
+        if (e.code === "Space") {
+          e.preventDefault();
+          flip();
+        } else if (e.code === "ArrowRight") {
+          advance(undefined);
+        } else if (e.code === "ArrowLeft") {
+          goBack();
+        } else if (e.key === "k" || e.key === "K") {
+          advance(true);
+        } else if (e.key === "a" || e.key === "A") {
+          advance(false);
+        }
+      });
+
+      render();
+    </script>
+  </body>
+</html>
