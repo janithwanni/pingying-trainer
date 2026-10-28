@@ -9,9 +9,28 @@
  */
 import { getSettings, setSetting } from "./store.js";
 
+/* Context window in tokens. WebLLM's default (4096) reserves ~450 MB of KV
+ * cache for Qwen3; a Talk turn (prompt + recent history + reply) needs well
+ * under this, and the smaller cache is what lets Standard fit on phones. */
+export const CONTEXT = 1536;
+
+/* quant: [build for GPUs with shader-f16, fallback build without it].
+ * history: recent messages sent with each turn.
+ * sampling: extra chat-completion options.
+ * Both models looped on their own earlier lines in longer chats (Standard
+ * repeated one reply 6 times in 10 turns), so they get little history to copy
+ * plus a presence penalty, Qwen's suggested fix for repetition. */
 export const MODELS = {
-  standard: { label: "Standard", base: "Qwen3-1.7B", mb: 984, note: "Recommended. Natural, on-topic replies. Needs ~2 GB of GPU memory (most laptops, recent phones)." },
-  lite: { label: "Lite", base: "Qwen3-0.6B", mb: 352, note: "Smaller download for older phones, but replies are often off-topic or slip into English." },
+  standard: {
+    label: "Standard", base: "Qwen3-1.7B", quant: ["q4f16_1", "q4f32_1"], mb: 984, history: 4,
+    sampling: { presence_penalty: 0.8, frequency_penalty: 0, top_p: 0.8 },
+    note: "Recommended. Natural, on-topic replies. Uses ~1.8 GB of GPU memory.",
+  },
+  lite: {
+    label: "Lite", base: "Qwen3-0.6B", quant: ["q4f16_1", "q4f32_1"], mb: 352, history: 4,
+    sampling: { presence_penalty: 0.8, frequency_penalty: 0, top_p: 0.8 },
+    note: "For devices where Standard crashes. Uses ~1.1 GB; simpler replies that can drift off-topic.",
+  },
 };
 // Qwen3 models "think" before answering by default; that's slow and not needed here.
 const NO_THINK = (choice) => MODELS[choice].base.startsWith("Qwen3");
@@ -36,7 +55,8 @@ export function gpuInfo() {
 /** Full WebLLM model id for this device (f32 build when the GPU lacks f16). */
 async function modelId(choice) {
   const info = await gpuInfo();
-  return `${MODELS[choice].base}-${info?.f16 ? "q4f16_1" : "q4f32_1"}-MLC`;
+  const { base, quant } = MODELS[choice];
+  return `${base}-${info?.f16 ? quant[0] : quant[1]}-MLC`;
 }
 
 /* ---------- worker RPC ---------- */
@@ -111,7 +131,7 @@ export async function loadModel(choice, onProgress = () => {}) {
   // Ask the browser not to evict the model, so it never has to be downloaded twice.
   navigator.storage?.persist?.().catch(() => {});
   engineId = null;
-  loading = call("load", { model: id });
+  loading = call("load", { model: id, chatOpts: { context_window_size: CONTEXT } });
   try {
     await loading;
     engineId = id;
@@ -135,7 +155,8 @@ export async function chatJson(messages, grammar, { signal } = {}) {
   const stop = () => call("interrupt");
   signal?.addEventListener("abort", stop);
   try {
-    const text = await call("chat", { messages, grammar, noThink: NO_THINK(engineChoice) });
+    const { sampling } = MODELS[engineChoice];
+    const text = await call("chat", { messages, grammar, sampling, noThink: NO_THINK(engineChoice) });
     if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
     return JSON.parse(firstObject(text));
   } finally {

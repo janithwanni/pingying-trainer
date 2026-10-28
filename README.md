@@ -30,8 +30,7 @@ replies, and when you write English it shows how to say that in Chinese.
   with a warning on mobile data or data saver. After that it is stored in
   Cache Storage, works offline and uses no data.
   - *Standard* (Qwen3-1.7B, 984 MB) is the default.
-  - *Lite* (Qwen3-0.6B, 352 MB) is a smaller option, but its replies are
-    noticeably worse.
+  - *Lite* (Qwen3-0.6B, 352 MB) is for devices where Standard crashes.
 - The app asks for persistent storage so the browser doesn't evict the model.
   `sw.js` deletes only its own `sprint-*` caches on update, never the
   `webllm/*` model caches.
@@ -42,8 +41,8 @@ replies, and when you write English it shows how to say that in Chinese.
 
 **Requirements:** WebGPU, which means Chrome or Edge on desktop or Android, or
 Safari on iOS/macOS 26 or newer. The tab explains this when WebGPU is missing.
-Replies take about 6–10 s on an M2 MacBook with the Standard model, and phones
-are slower.
+Replies take about 6–10 s on an M2 MacBook with Standard and 2.5–5 s with
+Lite.
 
 **Design notes**
 
@@ -52,8 +51,16 @@ are slower.
 - The model is constrained by a compact EBNF grammar (`talk.js`) rather than a
   JSON schema. WebLLM compiles JSON schemas to allow unlimited whitespace, and
   small models can get stuck emitting newlines until they hit the token limit.
-- Models of 0.6–1.7B flagged correct sentences as mistakes in testing, so the
+- Models of 0.6–1.7B (Qwen3) flagged correct sentences as mistakes in testing, so the
   AI never grades the learner's Chinese. It only translates English input.
+- GPU memory: the context window is 1,536 tokens instead of WebLLM's default
+  4,096. That cuts Qwen3's KV cache from about 450 MB to 170 MB, putting
+  Standard at about 1.8 GB and Lite at about 1.1 GB. A 10-turn chat peaked at
+  about 550 tokens. If a prompt still overflows, the worker drops the oldest
+  messages and retries.
+- Repetition: both models send only the last 4 messages and use
+  `presence_penalty` 0.8 with `top_p` 0.8. With 10 messages of history,
+  Standard repeated the same reply 6 times in a 10-turn chat.
 - Scenarios live in `src/data/scenarios.js`, and the prompt lives in
   `src/views/talk.js`.
 

@@ -9,23 +9,33 @@ let engine = null;
 const progress = (report) => self.postMessage({ progress: report });
 
 const ops = {
-  async load({ model }) {
+  async load({ model, chatOpts }) {
     if (engine) {
       engine.setInitProgressCallback(progress);
-      await engine.reload(model);
+      await engine.reload(model, chatOpts);
     } else {
-      engine = await CreateMLCEngine(model, { initProgressCallback: progress });
+      engine = await CreateMLCEngine(model, { initProgressCallback: progress }, chatOpts);
     }
   },
-  async chat({ messages, grammar, noThink }) {
-    const r = await engine.chat.completions.create({
-      messages,
-      temperature: 0.7,
-      max_tokens: 300,
-      response_format: { type: "grammar", grammar },
-      ...(noThink && { extra_body: { enable_thinking: false } }),
-    });
-    return r.choices[0].message.content;
+  async chat({ messages, grammar, sampling, noThink }) {
+    for (;;) {
+      try {
+        const r = await engine.chat.completions.create({
+          messages,
+          temperature: 0.7,
+          max_tokens: 300,
+          ...sampling,
+          response_format: { type: "grammar", grammar },
+          ...(noThink && { extra_body: { enable_thinking: false } }),
+        });
+        return r.choices[0].message.content;
+      } catch (e) {
+        // Prompt longer than the context window: drop the oldest message after
+        // the system prompt and try again (keep at least the latest message).
+        if (e?.name !== "ContextWindowSizeExceededError" || messages.length <= 2) throw e;
+        messages = [messages[0], ...messages.slice(2)];
+      }
+    }
   },
   interrupt() {
     engine?.interruptGenerate();

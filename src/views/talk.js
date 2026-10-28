@@ -18,7 +18,6 @@ import { canSpeak, speak, stopSpeaking } from "../lib/speech.js";
 import { looksLikePinyin, numbersToMarks } from "../lib/pinyin.js";
 import { esc, SPEAKER } from "../lib/util.js";
 
-const HISTORY = 10; // most recent messages sent to the model, plus the system prompt
 const LEVELS = {
   beginner: { label: "Beginner", hsk: "HSK 1–2", style: "very short, simple sentences" },
   elementary: { label: "Elementary", hsk: "HSK 1–3", style: "short, natural sentences" },
@@ -90,7 +89,8 @@ function modelMessages(s) {
   const msgs = s.turns.map((t) =>
     t.who === "me" ? { role: "user", content: t.text } : { role: "assistant", content: JSON.stringify({ reply_zh: t.zh, reply_en: t.en }) }
   );
-  return [{ role: "system", content: systemPrompt(s.scenario, s.level) }, ...msgs.slice(-HISTORY)];
+  // Recent messages only; how many depends on the model (see MODELS in llm.js).
+  return [{ role: "system", content: systemPrompt(s.scenario, s.level) }, ...msgs.slice(-MODELS[modelChoice()].history)];
 }
 
 function newSession(sc) {
@@ -188,7 +188,7 @@ async function renderModelPanel(panel) {
   }
 
   panel.innerHTML = `
-    <div class="model-opts" role="radiogroup" aria-label="AI model">
+    ${Object.keys(MODELS).length < 2 ? "" : `<div class="model-opts" role="radiogroup" aria-label="AI model">
       ${Object.entries(MODELS)
         .map(
           ([k, M]) => `
@@ -198,7 +198,7 @@ async function renderModelPanel(panel) {
         </button>`
         )
         .join("")}
-    </div>
+    </div>`}
     ${status}
     ${
       Object.values(have).some(Boolean) && !(dl && !dl.error)
