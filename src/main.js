@@ -9,8 +9,9 @@ import * as lesson from "./views/lesson.js";
 import * as words from "./views/words.js";
 import * as practice from "./views/practice.js";
 import * as progress from "./views/progress.js";
+import * as talk from "./views/talk.js";
 
-const ROUTES = { learn, lesson, words, practice, progress };
+const ROUTES = { learn, lesson, words, practice, talk, progress };
 const TAB_FOR = { lesson: "learn" };
 
 const view = document.getElementById("view");

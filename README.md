@@ -14,6 +14,49 @@ npm run cf:dev       # build + run with Pages Functions and a local KV store
 npm run check-data   # check vocab/lesson data (tile counts, tones, duplicates)
 ```
 
+## Talk tab (on-device AI conversation practice)
+
+The **Talk** tab role-plays everyday situations (café, taxi, directions…) with
+a small LLM that runs **inside the app** on the device's GPU, through
+[WebLLM](https://webllm.mlc.ai) and WebGPU. No server, API key or account is
+involved, and nothing you type leaves the device. Reply in hanzi, pinyin
+(`ni3 hao3` is fine) or English, or use the mic where the browser supports
+Mandarin speech recognition. The partner answers in Mandarin and suggests
+replies, and when you write English it shows how to say that in Chinese.
+
+**Network use**
+
+- The model downloads only when the learner taps *Download* on the Talk tab,
+  with a warning on mobile data or data saver. After that it is stored in
+  Cache Storage, works offline and uses no data.
+  - *Standard* (Qwen3-1.7B, 984 MB) is the default.
+  - *Lite* (Qwen3-0.6B, 352 MB) is a smaller option, but its replies are
+    noticeably worse.
+- The app asks for persistent storage so the browser doesn't evict the model.
+  `sw.js` deletes only its own `sprint-*` caches on update, never the
+  `webllm/*` model caches.
+- WebLLM's code (about 2.2 MB gzipped) lives only in the worker bundle
+  (`src/lib/llm.worker.js`) and loads only when a model is loaded. Opening the
+  Talk tab checks for a downloaded model by reading Cache Storage directly.
+  `pinyin-pro` (about 140 KB gzipped) loads on the first AI reply.
+
+**Requirements:** WebGPU, which means Chrome or Edge on desktop or Android, or
+Safari on iOS/macOS 26 or newer. The tab explains this when WebGPU is missing.
+Replies take about 6–10 s on an M2 MacBook with the Standard model, and phones
+are slower.
+
+**Design notes**
+
+- Pinyin is generated locally with `pinyin-pro`, not by the model. That is
+  more accurate and means fewer tokens to generate.
+- The model is constrained by a compact EBNF grammar (`talk.js`) rather than a
+  JSON schema. WebLLM compiles JSON schemas to allow unlimited whitespace, and
+  small models can get stuck emitting newlines until they hit the token limit.
+- Models of 0.6–1.7B flagged correct sentences as mistakes in testing, so the
+  AI never grades the learner's Chinese. It only translates English input.
+- Scenarios live in `src/data/scenarios.js`, and the prompt lives in
+  `src/views/talk.js`.
+
 ## Deploy to Cloudflare Pages
 
 1. Create the KV namespace for progress sync:
@@ -48,6 +91,7 @@ each device.
 | `src/lib/sync.js` | debounced sync to `/api/progress/:sync-code`, per-item last-write-wins merge |
 | `src/lib/pinyin.js` | grades typed pinyin (tone marks or numbers, ü as `v`, 不/一 sandhi tolerated) |
 | `src/lib/speech.js` | Mandarin text-to-speech through the browser's built-in voices |
+| `src/lib/llm.js`, `src/lib/llm.worker.js`, `src/data/scenarios.js` | Talk tab: on-device LLM (WebLLM in a worker) and role-play scenarios |
 | `src/views/*` | Learn path, lesson player, exercises, flashcards, practice, progress |
 | `functions/api/progress/[id].js` | Pages Function that reads and writes KV |
 | `public/sw.js`, `public/manifest.webmanifest` | offline cache and home-screen install |

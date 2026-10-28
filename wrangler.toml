@@ -1,6 +1,6 @@
 # Cloudflare Pages config. Used by `wrangler pages dev` / `wrangler pages deploy`
 # and by Git-connected Pages builds.
-name = "pinyin-sprint"
+name = "pingying-trainer"
 pages_build_output_dir = "dist"
 compatibility_date = "2025-09-01"
 [[kv_namespaces]]

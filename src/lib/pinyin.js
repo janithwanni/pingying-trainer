@@ -59,6 +59,17 @@ export function checkPinyin(input, tokens) {
   return "tones";
 }
 
+/* True when every word is made of pinyin syllables ("wǒ yào kāfēi",
+ * "ni hao"), so typed pinyin isn't mistaken for English. Very short English
+ * words that happen to be valid syllables ("a", "no") also pass. */
+const SYLLABLE =
+  "(?:[bpmfdtnlgkhjqxrzcsyw]|zh|ch|sh)?(?:iang|iong|uang|ang|eng|ing|ong|uai|uan|ian|iao|van|ai|ei|ao|ou|an|en|in|un|vn|ia|ie|iu|ua|uo|ue|ve|ui|er|a|o|e|i|u|v)r?";
+const PINYIN_WORD = new RegExp(`^(?:${SYLLABLE})+$`);
+export function looksLikePinyin(str) {
+  const words = str.split(/[\s,.!?'’，。！？]+/).filter(Boolean);
+  return words.length > 0 && words.every((w) => PINYIN_WORD.test(analyze(w).letters));
+}
+
 /* Convert "ni3 hao3" style input to tone marks for live preview. */
 const VOWEL_MARKS = {
   a: "āáǎà", e: "ēéěè", i: "īíǐì", o: "ōóǒò", u: "ūúǔù", v: "ǖǘǚǜ",
