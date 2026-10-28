@@ -9,60 +9,59 @@ free tier.
 
 ```bash
 npm install
-npm run dev          # UI only (cloud sync shows as "not set up")
-npm run cf:dev       # build + run with Pages Functions and a local KV store
+npm run dev          # UI only (cloud sync shows as "not set up", Talk tab unavailable)
+npm run cf:dev       # build + run with Pages Functions, a local KV store and Workers AI
 npm run check-data   # check vocab/lesson data (tile counts, tones, duplicates)
 ```
 
-## Talk tab (on-device AI conversation practice)
+## Talk tab (AI conversation practice)
 
 The **Talk** tab role-plays everyday situations (café, taxi, directions…) with
-a small LLM that runs **inside the app** on the device's GPU, through
-[WebLLM](https://webllm.mlc.ai) and WebGPU. No server, API key or account is
-involved, and nothing you type leaves the device. Reply in hanzi, pinyin
+an AI partner running on [Cloudflare Workers AI](https://developers.cloudflare.com/workers-ai/)
+through a Pages Function (`functions/api/talk.js`). Reply in hanzi, pinyin
 (`ni3 hao3` is fine) or English, or use the mic where the browser supports
-Mandarin speech recognition. The partner answers in Mandarin and suggests
-replies, and when you write English it shows how to say that in Chinese.
+Mandarin speech recognition. The partner answers in Mandarin, and when you
+write English it shows how to say that in Chinese. *Hint* suggests two replies.
+The rest of the app still works offline; Talk needs a connection.
 
-**Network use**
+**Setup:** `wrangler.toml` binds Workers AI as `AI`, which Pages picks up on
+deploy. `npm run cf:dev` uses the same binding, and local calls count against
+your account's Neurons. Optional environment variables for the Pages project:
 
-- The model downloads only when the learner taps *Download* on the Talk tab,
-  with a warning on mobile data or data saver. After that it is stored in
-  Cache Storage, works offline and uses no data.
-  - *Standard* (Qwen3-1.7B, 984 MB) is the default.
-  - *Lite* (Qwen3-0.6B, 352 MB) is for devices where Standard crashes.
-- The app asks for persistent storage so the browser doesn't evict the model.
-  `sw.js` deletes only its own `sprint-*` caches on update, never the
-  `webllm/*` model caches.
-- WebLLM's code (about 2.2 MB gzipped) lives only in the worker bundle
-  (`src/lib/llm.worker.js`) and loads only when a model is loaded. Opening the
-  Talk tab checks for a downloaded model by reading Cache Storage directly.
-  `pinyin-pro` (about 140 KB gzipped) loads on the first AI reply.
+| Variable | Effect |
+|---|---|
+| `TALK_MODEL` | Use another Workers AI chat model (default `@cf/qwen/qwen3-30b-a3b-fp8`) |
+| `AI_GATEWAY` | Route calls through an [AI Gateway](https://developers.cloudflare.com/ai-gateway/) with that id, for analytics and rate limiting |
 
-**Requirements:** WebGPU, which means Chrome or Edge on desktop or Android, or
-Safari on iOS/macOS 26 or newer. The tab explains this when WebGPU is missing.
-Replies take about 6–10 s on an M2 MacBook with Standard and 2.5–5 s with
-Lite.
+**Neuron use:** a message costs about 1.7 Neurons (~220 input tokens and ~27
+output tokens), and so does a *Hint*. The free allocation of 10,000 Neurons a
+day covers roughly 5,000–6,000 messages. To keep it low:
+
+- **Model:** Qwen3-30B-A3B has the best Chinese per Neuron in the catalog.
+  Granite-4.0-micro costs about 60% less but broke the format and spoke as the
+  customer in testing.
+- **Prompt and inputs:** the server builds the prompt from a scenario id, so
+  the endpoint can't be used as a general LLM. Messages are capped at 160
+  characters, with the last 4 kept as history.
+- **Output format:** replies are plain labelled lines (`ZH:` / `EN:` /
+  `SAY:`) rather than JSON, with `max_tokens` 120. Output tokens cost about
+  6.6× input tokens.
+- **Thinking:** Qwen3's thinking is switched off with `/no_think`.
+- **Done on the device:** pinyin (`pinyin-pro`), scenario openers and the
+  review screen use no AI. Suggestions are only generated when *Hint* is
+  tapped.
+- **Daily limit:** when the free allocation runs out, the app says so
+  instead of failing silently.
 
 **Design notes**
 
-- Pinyin is generated locally with `pinyin-pro`, not by the model. That is
-  more accurate and means fewer tokens to generate.
-- The model is constrained by a compact EBNF grammar (`talk.js`) rather than a
-  JSON schema. WebLLM compiles JSON schemas to allow unlimited whitespace, and
-  small models can get stuck emitting newlines until they hit the token limit.
-- Models of 0.6–1.7B (Qwen3) flagged correct sentences as mistakes in testing, so the
-  AI never grades the learner's Chinese. It only translates English input.
-- GPU memory: the context window is 1,536 tokens instead of WebLLM's default
-  4,096. That cuts Qwen3's KV cache from about 450 MB to 170 MB, putting
-  Standard at about 1.8 GB and Lite at about 1.1 GB. A 10-turn chat peaked at
-  about 550 tokens. If a prompt still overflows, the worker drops the oldest
-  messages and retries.
-- Repetition: both models send only the last 4 messages and use
-  `presence_penalty` 0.8 with `top_p` 0.8. With 10 messages of history,
-  Standard repeated the same reply 6 times in a 10-turn chat.
-- Scenarios live in `src/data/scenarios.js`, and the prompt lives in
-  `src/views/talk.js`.
+- The AI never grades the learner's Chinese. Small models flagged correct
+  sentences as mistakes in testing, so it only translates English input.
+- Learner turns are labelled `Learner:` and the `SAY:` line quotes the exact
+  message. Without these the model sometimes repeated the learner's line as
+  its own, or translated an earlier message.
+- Scenarios and levels live in `src/data/scenarios.js`, and the prompt lives
+  in `functions/api/talk.js`.
 
 ## Deploy to Cloudflare Pages
 
@@ -78,7 +77,7 @@ Lite.
    - **Git:** push this folder to GitHub/GitLab, then in Cloudflare go to
      *Workers & Pages → Create → Pages → Connect to Git*. Use build command
      `npm run build` and output directory `dist`. Pages reads `wrangler.toml`
-     for the KV binding.
+     for the KV and Workers AI bindings.
 
 The app still works without the KV binding. Progress is then saved only on
 each device.
@@ -98,7 +97,8 @@ each device.
 | `src/lib/sync.js` | debounced sync to `/api/progress/:sync-code`, per-item last-write-wins merge |
 | `src/lib/pinyin.js` | grades typed pinyin (tone marks or numbers, ü as `v`, 不/一 sandhi tolerated) |
 | `src/lib/speech.js` | Mandarin text-to-speech through the browser's built-in voices |
-| `src/lib/llm.js`, `src/lib/llm.worker.js`, `src/data/scenarios.js` | Talk tab: on-device LLM (WebLLM in a worker) and role-play scenarios |
+| `src/views/talk.js`, `src/lib/llm.js`, `src/data/scenarios.js` | Talk tab: chat UI, `/api/talk` client, role-play scenarios |
+| `functions/api/talk.js` | Pages Function that builds the prompt and calls Workers AI |
 | `src/views/*` | Learn path, lesson player, exercises, flashcards, practice, progress |
 | `functions/api/progress/[id].js` | Pages Function that reads and writes KV |
 | `public/sw.js`, `public/manifest.webmanifest` | offline cache and home-screen install |

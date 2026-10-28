@@ -6,3 +6,6 @@ compatibility_date = "2025-09-01"
 [[kv_namespaces]]
 binding = "PROGRESS"
 id = "f0439533db7e46c88994124391a2f5e7"
+# Workers AI for the Talk tab (functions/api/talk.js). Free tier: 10,000 Neurons/day.
+[ai]
+binding = "AI"

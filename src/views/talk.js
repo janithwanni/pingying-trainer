@@ -1,47 +1,30 @@
-/* Talk tab — role-play conversations with an AI model that runs on the device
- * (see lib/llm.js). The partner replies in Chinese + English and offers reply
- * suggestions; when the learner writes English or pinyin it also shows how to
- * say that in Chinese. Pinyin is added locally with pinyin-pro rather than
- * generated, which is both faster and more accurate.
+/* Talk tab — role-play conversations with an AI partner on Cloudflare Workers
+ * AI (see lib/llm.js and functions/api/talk.js). The partner replies in
+ * Chinese + English; when the learner writes English it also shows how to say
+ * that in Chinese. To keep Workers AI usage (Neurons) low, pinyin is added
+ * locally with pinyin-pro, scenario openers are built in, and reply
+ * suggestions are only fetched when the learner taps Hint.
  *
- * Small on-device models can't reliably judge a learner's grammar (in testing
- * they flagged correct sentences), so they're only asked to translate, never
- * to grade. The session lives at module level so switching tabs doesn't lose
- * the conversation.
+ * Small models can't reliably judge a learner's grammar (in testing they
+ * flagged correct sentences), so the AI only translates, never grades. The
+ * session lives at module level so switching tabs doesn't lose the
+ * conversation.
  */
-import { SCENARIOS, SCENARIO_BY_ID } from "../data/scenarios.js";
-import {
-  MODELS, chatJson, deleteModel, gpuInfo, isDownloaded, isLoaded, loadModel, modelChoice, onMeteredNetwork, setModelChoice,
-} from "../lib/llm.js";
+import { LEVELS, SCENARIOS, SCENARIO_BY_ID } from "../data/scenarios.js";
+import { MAX_CHARS, talkHints, talkTurn } from "../lib/llm.js";
 import { getSettings, logAnswer, setSetting } from "../lib/store.js";
 import { canSpeak, speak, stopSpeaking } from "../lib/speech.js";
 import { looksLikePinyin, numbersToMarks } from "../lib/pinyin.js";
 import { esc, SPEAKER } from "../lib/util.js";
 
-const LEVELS = {
-  beginner: { label: "Beginner", hsk: "HSK 1–2", style: "very short, simple sentences" },
-  elementary: { label: "Elementary", hsk: "HSK 1–3", style: "short, natural sentences" },
-};
 const SR = typeof window !== "undefined" ? window.SpeechRecognition || window.webkitSpeechRecognition : undefined;
 
-/* Compact JSON with no free whitespace and no raw newlines in strings:
- * {"say_zh":"…",  ← only when the learner wrote English
- *  "reply_zh":"…","reply_en":"…","suggestions":[{"zh":"…","en":"…"},{"zh":"…","en":"…"}]} */
-const GRAMMAR_BASE = String.raw`
-str ::= "\"" char* "\""
-char ::= [^"\\\r\n] | "\\" ["\\/nt]
-line ::= "{\"zh\":" str ",\"en\":" str "}"
-reply ::= "\"reply_zh\":" str ",\"reply_en\":" str ",\"suggestions\":[" line "," line "]}"`;
-const grammarFor = (needSay) => `root ::= "{" ${needSay ? String.raw`"\"say_zh\":" str ","` : ""} reply` + GRAMMAR_BASE;
-const hasHanzi = (t) => /[\u4e00-\u9fff]/.test(t || "");
+const hasHanzi = (t) => /[一-鿿]/.test(t || "");
 const inChinese = (t) => hasHanzi(t) || looksLikePinyin(t);
 
 /** @type {null | {scenario: object, level: string, turns: object[]}} */
 let session = null;
 let endChat = () => {}; // aborts the open chat's request / mic
-/* Model download/load progress, kept here so it survives leaving the tab. */
-let dl = null; // { choice, progress: 0-1, text, error }
-let onDl = () => {};
 
 const level = () => (LEVELS[getSettings().talkLevel] ? getSettings().talkLevel : "beginner");
 const pref = (k, dflt) => getSettings()[k] ?? dflt;
@@ -55,62 +38,31 @@ async function toPinyin(text) {
     .trim();
 }
 
-function startLoad(choice) {
-  dl = { choice, progress: 0, text: "Starting…" };
-  onDl();
-  return loadModel(choice, ({ progress, text }) => {
-    dl = { choice, progress, text };
-    onDl();
-  })
-    .then(() => {
-      dl = null;
-      onDl();
-    })
-    .catch((e) => {
-      dl = { choice, progress: 0, error: e.message || String(e) };
-      onDl();
-      throw e;
-    });
-}
-
-function systemPrompt(sc, lvl) {
-  const L = LEVELS[lvl];
-  return `你在一个中文口语练习里扮演角色，对方是刚开始学中文的外国人。只说很简单的中文（${L.hsk}）。
-You are ${sc.role}, talking with a ${L.label.toLowerCase()} learner of Mandarin (the learner). Their task: ${sc.goal}
-
-Answer every learner message with JSON:
-- say_zh (only when asked for): how the learner should say their English message in Chinese — same speaker, same meaning ("I…" stays 我…), simple and natural.
-- reply_zh: what you say next, staying in character. Chinese characters only (no English, no pinyin), 1–2 ${L.style}, usually ending with a question.
-- reply_en: English translation of reply_zh.
-- suggestions: 2 different short answers the LEARNER could give to your reply_zh, in Chinese, with English.`;
-}
-
-function modelMessages(s) {
-  const msgs = s.turns.map((t) =>
-    t.who === "me" ? { role: "user", content: t.text } : { role: "assistant", content: JSON.stringify({ reply_zh: t.zh, reply_en: t.en }) }
-  );
-  // Recent messages only; how many depends on the model (see MODELS in llm.js).
-  return [{ role: "system", content: systemPrompt(s.scenario, s.level) }, ...msgs.slice(-MODELS[modelChoice()].history)];
-}
+/* What the server sees of the conversation: plain text per message. */
+const asHistory = (turns) => turns.map((t) => ({ who: t.who, text: t.who === "me" ? t.text : t.zh }));
 
 function newSession(sc) {
   const o = sc.opener;
-  session = { scenario: sc, level: level(), turns: [{ who: "ai", zh: o.zh, py: o.py, en: o.en, suggestions: [] }] };
+  session = { scenario: sc, level: level(), turns: [{ who: "ai", zh: o.zh, py: o.py, en: o.en }] };
 }
 
-/* ---------- home: on-device model + scenario picker ---------- */
+/* ---------- home: scenario picker ---------- */
 function renderHome(root) {
   const lvl = level();
   root.innerHTML = `
     <div class="lesson-head">
-      <div class="lesson-kicker">Conversation practice · on-device AI</div>
+      <div class="lesson-kicker">Conversation practice · AI partner</div>
       <h2>Talk it through</h2>
     </div>
-    <p class="muted talk-lede">Role-play everyday situations with an AI partner that runs entirely on this device,
-    offline once it's downloaded. Reply in characters, pinyin (<code>ni3 hao3</code> works) or English. Your partner
-    answers in Mandarin, shows how to say your English or pinyin in Chinese, and suggests what to say next.</p>
-
-    <div class="model-panel" id="modelPanel"><div class="llm-status"><span class="dot"></span><span>Checking this device…</span></div></div>
+    <p class="muted talk-lede">Role-play everyday situations with an AI partner. Reply in characters, pinyin
+    (<code>ni3 hao3</code> works) or English. Your partner answers in Mandarin, shows how to say your English in
+    Chinese, and can suggest what to say next.</p>
+    ${
+      navigator.onLine === false
+        ? `<div class="llm-status warn"><span class="dot"></span><span>You're offline. Talk needs an internet connection;
+           the rest of the app works offline.</span></div>`
+        : ""
+    }
 
     ${
       session
@@ -151,81 +103,6 @@ function renderHome(root) {
       newSession(SCENARIO_BY_ID.get(a.dataset.new));
     })
   );
-  const panel = root.querySelector("#modelPanel");
-  onDl = () => panel.isConnected && renderModelPanel(panel);
-  renderModelPanel(panel);
-}
-
-async function renderModelPanel(panel) {
-  if (!(await gpuInfo())) {
-    panel.innerHTML = `<div class="llm-status bad"><span class="dot"></span><span>This browser can't run the on-device AI because
-      it needs <b>WebGPU</b>. Try Chrome or Edge on a computer or Android, or Safari on iOS/macOS 26 or newer.</span></div>`;
-    return;
-  }
-  const choice = modelChoice();
-  const have = {};
-  for (const k of Object.keys(MODELS)) have[k] = await isDownloaded(k).catch(() => false);
-  const ready = await isLoaded(choice);
-  if (!panel.isConnected) return;
-  const m = MODELS[choice];
-
-  let status;
-  if (dl && !dl.error) {
-    status = `<div class="llm-status"><span class="dot"></span><span>${have[dl.choice] ? "Loading" : "Downloading"} ${MODELS[dl.choice].label} model…
-      ${Math.round(dl.progress * 100)}%<br /><small>${esc(dl.text)}</small></span></div>
-      <div class="progress-track"><div class="progress-fill" style="width:${dl.progress * 100}%"></div></div>`;
-  } else if (dl?.error) {
-    status = `<div class="llm-status bad"><span class="dot"></span><span>Couldn't load the model: ${esc(dl.error)}</span></div>
-      <div class="cta-row"><button class="btn primary" data-dl>Try again</button></div>`;
-  } else if (ready) {
-    status = `<div class="llm-status ok"><span class="dot"></span><span>Ready · <b>${m.label}</b> model loaded, no network needed. Pick a scenario below.</span></div>`;
-  } else if (have[choice]) {
-    status = `<div class="llm-status ok"><span class="dot"></span><span><b>${m.label}</b> model is downloaded and loads from this device when you start a chat.</span></div>`;
-  } else {
-    status = `<div class="llm-status warn"><span class="dot"></span><span>Download the <b>${m.label}</b> model once (${m.mb} MB). After that, Talk works offline
-      and uses no data.${onMeteredNetwork() ? " <b>You seem to be on mobile data or data saver, so Wi-Fi is recommended.</b>" : ""}</span></div>
-      <div class="cta-row"><button class="btn primary" data-dl>Download ${m.label} · ${m.mb} MB</button></div>`;
-  }
-
-  panel.innerHTML = `
-    ${Object.keys(MODELS).length < 2 ? "" : `<div class="model-opts" role="radiogroup" aria-label="AI model">
-      ${Object.entries(MODELS)
-        .map(
-          ([k, M]) => `
-        <button class="model-opt ${k === choice ? "active" : ""}" data-model="${k}" role="radio" aria-checked="${k === choice}" ${dl && !dl.error ? "disabled" : ""}>
-          <span class="mo-head"><b>${M.label}</b><span>${have[k] ? "✓ on device" : `${M.mb} MB`}</span></span>
-          <small>${M.note}</small>
-        </button>`
-        )
-        .join("")}
-    </div>`}
-    ${status}
-    ${
-      Object.values(have).some(Boolean) && !(dl && !dl.error)
-        ? `<p class="muted model-manage">${Object.keys(MODELS)
-            .filter((k) => have[k])
-            .map((k) => `<button class="link-btn" data-del="${k}">Remove ${MODELS[k].label} (${MODELS[k].mb} MB)</button>`)
-            .join(" · ")}</p>`
-        : ""
-    }`;
-
-  panel.querySelectorAll("[data-model]").forEach((b) =>
-    b.addEventListener("click", () => {
-      setModelChoice(b.dataset.model);
-      dl = null;
-      renderModelPanel(panel);
-    })
-  );
-  panel.querySelector("[data-dl]")?.addEventListener("click", () => startLoad(choice).catch(() => {}));
-  panel.querySelectorAll("[data-del]").forEach((b) =>
-    b.addEventListener("click", async () => {
-      const k = b.dataset.del;
-      if (!confirm(`Remove the ${MODELS[k].label} model from this device? You'd need to download it again (${MODELS[k].mb} MB) to use it.`)) return;
-      b.disabled = true;
-      await deleteModel(k).catch(() => {});
-      renderModelPanel(panel);
-    })
-  );
 }
 
 /* ---------- chat ---------- */
@@ -234,8 +111,6 @@ function renderChat(root) {
   const s = session;
   let ctrl = null;
   let rec = null;
-  let ready = false;
-  let gate = ""; // shown instead of the composer while the model isn't usable
 
   root.innerHTML = `
     <div class="talk">
@@ -255,7 +130,7 @@ function renderChat(root) {
       <form class="talk-input" id="talkForm" autocomplete="off">
         <div class="py-preview talk-preview" id="talkPreview"></div>
         <div class="talk-row">
-          <input class="py-input" id="talkText" placeholder="Reply in 汉字, pinyin or English…" lang="zh" enterkeyhint="send" />
+          <input class="py-input" id="talkText" placeholder="Reply in 汉字, pinyin or English…" lang="zh" enterkeyhint="send" maxlength="${MAX_CHARS}" />
           ${SR ? `<button type="button" class="icon-btn mic" id="micBtn" aria-label="Speak your reply" title="Speak (Mandarin)">🎙</button>` : ""}
           <button class="btn primary" id="sendBtn">Send</button>
         </div>
@@ -264,7 +139,7 @@ function renderChat(root) {
           <button type="button" class="btn ghost" id="endBtn">End &amp; review</button>
         </div>
       </form>
-      <p class="muted talk-note">Replies come from a small on-device AI model and can contain mistakes.</p>
+      <p class="muted talk-note">Replies come from an AI model and can contain mistakes.</p>
     </div>`;
 
   const log = root.querySelector("#talkLog");
@@ -272,8 +147,10 @@ function renderChat(root) {
   const input = root.querySelector("#talkText");
   const preview = root.querySelector("#talkPreview");
   const sendBtn = root.querySelector("#sendBtn");
+  const hintBtn = root.querySelector("#hintBtn");
   let showHints = false;
-  let busy = false;
+  let busy = false; // waiting on a reply
+  let hinting = false; // waiting on hints
   let error = "";
 
   function bubble(t, i) {
@@ -303,8 +180,8 @@ function renderChat(root) {
             : `<button class="msg-en reveal" data-reveal>Show English</button><div class="msg-en" hidden>${esc(t.en)}</div>`
         }
         ${
-          last && showHints && t.suggestions?.length
-            ? `<div class="hints">${t.suggestions
+          last && showHints && t.hints?.length
+            ? `<div class="hints">${t.hints
                 .map((h) => `<button class="hint" data-use="${esc(h.zh)}"><b>${esc(h.zh)}</b><span>${esc(h.py)}</span><small>${esc(h.en)}</small></button>`)
                 .join("")}</div>`
             : ""
@@ -317,11 +194,11 @@ function renderChat(root) {
     log.innerHTML =
       s.turns.map(bubble).join("") +
       (busy ? `<div class="msg ai typing"><span></span><span></span><span></span></div>` : "") +
-      (gate ? `<div class="msg err">${gate}</div>` : "") +
       (error ? `<div class="msg err">${error} <button class="btn" id="retryBtn">Retry</button></div>` : "");
     const last = s.turns[s.turns.length - 1];
-    root.querySelector("#hintBtn").disabled = busy || last.who !== "ai" || !last.suggestions?.length;
-    sendBtn.disabled = busy || !ready;
+    hintBtn.disabled = busy || hinting || last.who !== "ai";
+    hintBtn.textContent = hinting ? "💡 …" : "💡 Hint";
+    sendBtn.disabled = busy;
     log.querySelector("#retryBtn")?.addEventListener("click", ask);
     log.lastElementChild?.scrollIntoView({ block: "nearest", behavior: "smooth" });
   }
@@ -332,44 +209,58 @@ function renderChat(root) {
     showHints = false;
     draw();
     ctrl = new AbortController();
+    const me = s.turns[s.turns.length - 1];
+    // Only English gets a "how to say it" line; pinyin already is Chinese.
+    const needSay = !inChinese(me.text);
+    const req = { scenario: s.scenario.id, level: s.level, history: asHistory(s.turns.slice(0, -1)), text: me.text, say: needSay };
     try {
-      const me = s.turns[s.turns.length - 1];
-      // Only English gets a "how to say it" line; pinyin already is Chinese (and
-      // small models convert pinyin to characters unreliably).
-      const needSay = me.who === "me" && !inChinese(me.text);
-      // Small models occasionally answer in English or emit broken JSON; one retry fixes most of it.
       let r;
-      for (let attempt = 0; attempt < 2; attempt++) {
-        try {
-          r = await chatJson(modelMessages(s), grammarFor(needSay), { signal: ctrl.signal });
-        } catch (e) {
-          if (e.name === "AbortError" || attempt) throw e;
-          continue;
-        }
-        if (hasHanzi(r.reply_zh)) break;
+      // One automatic retry: the model occasionally answers in the wrong format.
+      try {
+        r = await talkTurn(req, { signal: ctrl.signal });
+      } catch (e) {
+        if (e.name === "AbortError") throw e;
+        r = await talkTurn(req, { signal: ctrl.signal });
       }
-      if (!hasHanzi(r.reply_zh)) throw new Error("The model didn't answer in Chinese.");
-      if (needSay) {
-        me.say = hasHanzi(r.say_zh) ? { zh: r.say_zh, py: await toPinyin(r.say_zh) } : null;
-      }
-      if (me.who === "me") logAnswer(!needSay);
-      const suggestions = await Promise.all(
-        (r.suggestions || []).filter((h) => hasHanzi(h.zh)).map(async (h) => ({ zh: h.zh, en: h.en, py: await toPinyin(h.zh) }))
-      );
-      s.turns.push({ who: "ai", zh: r.reply_zh, py: await toPinyin(r.reply_zh), en: r.reply_en, suggestions });
-      if (pref("talkSpeak", true) && canSpeak() && log.isConnected) speak(r.reply_zh);
+      if (needSay && r.say) me.say = { zh: r.say, py: await toPinyin(r.say) };
+      logAnswer(!needSay);
+      s.turns.push({ who: "ai", zh: r.zh, py: await toPinyin(r.zh), en: r.en });
+      if (pref("talkSpeak", true) && canSpeak() && log.isConnected) speak(r.zh);
     } catch (e) {
       if (e.name === "AbortError") return;
-      error = esc(e.message || "Something went wrong with the AI model.");
+      error = esc(e.message);
     } finally {
       busy = false;
     }
     draw();
   }
 
+  async function hints() {
+    const last = s.turns[s.turns.length - 1];
+    if (showHints || last.hints) {
+      showHints = !showHints;
+      return draw();
+    }
+    hinting = true;
+    error = "";
+    draw();
+    ctrl = new AbortController();
+    try {
+      const hs = await talkHints({ scenario: s.scenario.id, level: s.level, history: asHistory(s.turns) }, { signal: ctrl.signal });
+      last.hints = await Promise.all(hs.map(async (h) => ({ ...h, py: await toPinyin(h.zh) })));
+      showHints = true;
+    } catch (e) {
+      if (e.name === "AbortError") return;
+      error = esc(e.message);
+    } finally {
+      hinting = false;
+    }
+    draw();
+  }
+
   function send(text) {
     text = text.trim();
-    if (!text || busy || !ready) return;
+    if (!text || busy) return;
     if (/[a-z][1-5]/i.test(text)) text = numbersToMarks(text);
     s.turns.push({ who: "me", text });
     input.value = "";
@@ -384,10 +275,7 @@ function renderChat(root) {
   input.addEventListener("input", () => {
     preview.textContent = /[a-z][1-5]/i.test(input.value) ? numbersToMarks(input.value) : "";
   });
-  root.querySelector("#hintBtn").addEventListener("click", () => {
-    showHints = !showHints;
-    draw();
-  });
+  hintBtn.addEventListener("click", hints);
   root.querySelector("#endBtn").addEventListener("click", () => renderReview(root));
   root.querySelectorAll("[data-pref]").forEach((cb) =>
     cb.addEventListener("change", () => {
@@ -430,46 +318,14 @@ function renderChat(root) {
     rec.start();
   });
 
-  /* Bring the model up from this device's cache. Never downloads from here:
-   * the download is always an explicit choice on the Talk home screen. */
-  async function prepare() {
-    const choice = modelChoice();
-    if (!(await gpuInfo())) {
-      gate = `This browser can't run the on-device AI (WebGPU is needed). <a href="#/talk">More info</a>`;
-    } else if (!(await isLoaded(choice))) {
-      if (!dl && !(await isDownloaded(choice))) {
-        gate = `Download the AI model first (${MODELS[choice].mb} MB, one time). <a class="btn primary" href="#/talk">Go to download</a>`;
-      } else {
-        onDl = () => {
-          gate = dl && !dl.error ? `Loading AI model… ${Math.round(dl.progress * 100)}%` : gate;
-          draw();
-        };
-        onDl();
-        try {
-          await (dl ? loadModel(choice, (p) => ((dl = { choice, ...p }), onDl())) : startLoad(choice));
-        } catch (e) {
-          gate = `Couldn't load the AI model: ${esc(e.message || String(e))} <a href="#/talk">Back</a>`;
-          draw();
-          return;
-        }
-      }
-    }
-    if (gate && !(await isLoaded(choice))) return draw();
-    gate = "";
-    ready = true;
-    draw();
-    // Resume a reply that was interrupted by leaving the tab mid-request.
-    if (s.turns[s.turns.length - 1].who === "me") ask();
-    else if (s.turns.length === 1 && pref("talkSpeak", true) && canSpeak()) speak(s.turns[0].zh);
-  }
-
   draw();
-  prepare();
+  // Resume a reply that was interrupted by leaving the tab mid-request.
+  if (s.turns[s.turns.length - 1].who === "me") ask();
+  else if (s.turns.length === 1 && pref("talkSpeak", true) && canSpeak()) speak(s.turns[0].zh);
 
   endChat = () => {
     ctrl?.abort();
     rec?.abort();
-    onDl = () => {};
     endChat = () => {};
   };
 }
@@ -510,10 +366,7 @@ export function mount(root, arg) {
   const sc = arg && SCENARIO_BY_ID.get(arg);
   if (!sc) {
     renderHome(root);
-    return () => {
-      onDl = () => {};
-      stopSpeaking();
-    };
+    return stopSpeaking;
   }
   if (session?.scenario !== sc) newSession(sc);
   renderChat(root);

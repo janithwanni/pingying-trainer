@@ -1,5 +1,6 @@
 /* ============== CONVERSATION SCENARIOS ==============
- * Role-plays for the Talk tab. The local LLM plays `role`; `goal` is shown to
+ * Role-plays for the Talk tab, shared with functions/api/talk.js (which builds
+ * the prompt from them). The AI partner plays `role`; `goal` is shown to
  * the learner as their task; `opener` is the partner's first line, so a chat
  * starts instantly without waiting on the model.
  */
@@ -45,3 +46,9 @@ export const SCENARIOS = [
 ];
 
 export const SCENARIO_BY_ID = new Map(SCENARIOS.map((s) => [s.id, s]));
+
+/* Learner levels: shown in the Talk tab and used in the prompt (functions/api/talk.js). */
+export const LEVELS = {
+  beginner: { label: "Beginner", hsk: "HSK 1–2", style: "very short, simple sentences" },
+  elementary: { label: "Elementary", hsk: "HSK 1–3", style: "short, natural sentences" },
+};

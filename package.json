@@ -17,7 +17,6 @@
     "wrangler": "^4.151.1"
   },
   "dependencies": {
-    "@mlc-ai/web-llm": "^0.2.86",
     "pinyin-pro": "^3.29.5"
   }
 }

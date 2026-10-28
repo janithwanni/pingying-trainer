@@ -1,5 +1,5 @@
 /* Offline support. Bump VERSION to force old caches out. */
-const VERSION = "v2";
+const VERSION = "v3";
 const CACHE = "sprint-" + VERSION;
 const SHELL = ["/", "/manifest.webmanifest", "/icons/icon-192.png"];
 
@@ -12,9 +12,9 @@ self.addEventListener("activate", (e) => {
   e.waitUntil(
     caches
       .keys()
-      // Only our own old caches: the Talk tab's AI model lives in "webllm/*" caches
-      // and must survive app updates (it's hundreds of MB to re-download).
-      .then((keys) => Promise.all(keys.filter((k) => k.startsWith("sprint-") && k !== CACHE).map((k) => caches.delete(k))))
+      // Everything except the current cache, including "webllm/*" model caches
+      // left by an earlier on-device version of the Talk tab (hundreds of MB).
+      .then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k))))
       .then(() => self.clients.claim())
   );
 });

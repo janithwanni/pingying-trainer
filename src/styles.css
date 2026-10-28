@@ -1814,71 +1814,6 @@ button {
   color: var(--ink-soft);
   line-height: 1.5;
 }
-.model-panel {
-  max-width: 720px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-.model-panel .progress-track {
-  margin: 0;
-  height: 8px;
-}
-.model-panel .cta-row {
-  margin-top: 0;
-}
-.model-opts {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-}
-.model-opt {
-  text-align: left;
-  border: 1px solid var(--line);
-  background: var(--card);
-  color: var(--ink);
-  border-radius: 12px;
-  padding: 10px 12px;
-  cursor: pointer;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-.model-opt.active {
-  border-color: var(--ink);
-  box-shadow: 3px 3px 0 var(--ink);
-}
-.model-opt:disabled {
-  cursor: default;
-  opacity: 0.7;
-}
-.mo-head {
-  display: flex;
-  justify-content: space-between;
-  gap: 8px;
-}
-.mo-head span {
-  font-family: "JetBrains Mono", monospace;
-  font-size: 11.5px;
-  color: var(--ink-soft);
-}
-.model-opt small {
-  color: var(--ink-soft);
-  font-size: 12.5px;
-  line-height: 1.45;
-}
-.model-manage {
-  margin: 0;
-}
-.link-btn {
-  border: none;
-  background: none;
-  padding: 0;
-  color: var(--ink-soft);
-  text-decoration: underline;
-  cursor: pointer;
-  font-size: 12.5px;
-}
 .msg.err a {
   color: var(--seal);
 }
@@ -2152,8 +2087,5 @@ button {
   }
   .seg-opt {
     flex: 1;
-  }
-  .model-opts {
-    grid-template-columns: 1fr;
   }
 }
