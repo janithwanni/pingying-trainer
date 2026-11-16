@@ -11,6 +11,12 @@
  *    ~7x input tokens), Qwen3's thinking is switched off, and reply
  *    suggestions are only generated when the learner taps Hint;
  *  - pinyin is added on the client, never generated.
+ *
+ * Abuse protection: requests from other sites are refused, bodies are size-
+ * capped, and each address is limited to a burst of requests per minute. The
+ * per-minute limit lives in this isolate's memory, so it slows a single
+ * client down but isn't a hard quota — for that, route calls through an AI
+ * Gateway (AI_GATEWAY) with rate limiting, or add a Cloudflare WAF rule.
  */
 import { LEVELS, SCENARIO_BY_ID } from "../../src/data/scenarios.js";
 
@@ -19,6 +25,30 @@ import { LEVELS, SCENARIO_BY_ID } from "../../src/data/scenarios.js";
 const MODEL = "@cf/qwen/qwen3-30b-a3b-fp8";
 const HISTORY = 4; // most recent messages accepted / sent to the model
 const MAX_CHARS = 160; // per message
+const MAX_BODY = 4096; // bytes; a full request is well under 2 KB
+const RATE = { max: 20, windowMs: 60_000 }; // requests per address
+
+const hits = new Map(); // address → [window start, count]
+export function rateLimited(ip, now = Date.now()) {
+  if (hits.size > 5000) hits.clear(); // keep memory bounded
+  const h = hits.get(ip);
+  if (!h || now - h[0] >= RATE.windowMs) {
+    hits.set(ip, [now, 1]);
+    return false;
+  }
+  return ++h[1] > RATE.max;
+}
+
+/* Browsers send Origin on every cross-site POST; the app itself is same-origin. */
+function crossSite(request) {
+  const origin = request.headers.get("origin");
+  if (!origin) return false;
+  try {
+    return new URL(origin).host !== new URL(request.url).host;
+  } catch {
+    return true;
+  }
+}
 
 const json = (body, status = 200) =>
   new Response(JSON.stringify(body), {
@@ -31,7 +61,8 @@ const str = (v) => typeof v === "string" && v.trim().length > 0 && v.length <= M
 function system(sc, L) {
   return `Role-play for a ${L.label.toLowerCase()} learner of Mandarin. You are ${sc.role}. The user is the learner, playing themself; their task: ${sc.goal}
 Only ever speak as ${sc.role}, never as the user. Reply to what the user just said, then move the conversation forward.
-Speak only simple Chinese (${L.hsk}): 1–2 ${L.style}, usually ending with a question.`;
+Speak only simple Chinese (${L.hsk}): 1–2 ${L.style}, usually ending with a question.
+If the user says they don't understand (听不懂), say your last line again in easier words.`;
 }
 
 // Qwen3 "thinks" before answering unless told not to; that would be billed as
@@ -44,13 +75,18 @@ const clean = (t) =>
 const field = (text, label) => text.match(new RegExp(`^${label}:\\s*(.+)$`, "mi"))?.[1].trim() || "";
 
 export async function onRequestPost({ request, env }) {
+  if (crossSite(request)) return json({ error: "forbidden" }, 403);
   if (!env.AI) return json({ error: "ai-not-configured" }, 503);
+  if (rateLimited(request.headers.get("cf-connecting-ip") || "unknown")) return json({ error: "slow-down" }, 429);
   let body;
   try {
-    body = await request.json();
+    const raw = await request.text();
+    if (raw.length > MAX_BODY) return json({ error: "too-large" }, 413);
+    body = JSON.parse(raw);
   } catch {
     return json({ error: "bad-json" }, 400);
   }
+  if (!body || typeof body !== "object") return json({ error: "bad-request" }, 400);
   const sc = SCENARIO_BY_ID.get(body.scenario);
   const L = LEVELS[body.level];
   const history = Array.isArray(body.history) ? body.history.slice(-HISTORY) : null;
@@ -95,10 +131,11 @@ export async function onRequestPost({ request, env }) {
     const detail = String(e?.message || e).slice(0, 200);
     // 4006: the account's daily free Neuron allocation is used up.
     if (/4006|daily free allocation/i.test(detail)) return json({ error: "daily-limit" }, 429);
-    return json({ error: "ai-failed", detail }, 502);
+    // Details go to the Functions log, not to the client.
+    console.error("talk: model call failed:", detail);
+    return json({ error: "ai-failed" }, 502);
   }
   const text = clean(out?.response ?? out?.choices?.[0]?.message?.content);
-  const usage = out?.usage;
 
   if (body.hints) {
     const hints = text
@@ -107,10 +144,13 @@ export async function onRequestPost({ request, env }) {
       .filter(([zh, en]) => zh && en && /[一-鿿]/.test(zh))
       .slice(0, 2)
       .map(([zh, en]) => ({ zh, en }));
-    return json({ hints, usage });
+    return json({ hints });
   }
   const zh = field(text, "ZH");
-  if (!/[一-鿿]/.test(zh)) return json({ error: "no-chinese", detail: text.slice(0, 200) }, 502);
+  if (!/[一-鿿]/.test(zh)) {
+    console.error("talk: reply had no Chinese:", text.slice(0, 200));
+    return json({ error: "no-chinese" }, 502);
+  }
   const say = body.say ? field(text, "SAY") : "";
-  return json({ zh, en: field(text, "EN"), say: /[一-鿿]/.test(say) ? say : undefined, usage });
+  return json({ zh, en: field(text, "EN"), say: /[一-鿿]/.test(say) ? say : undefined });
 }

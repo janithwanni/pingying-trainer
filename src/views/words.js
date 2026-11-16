@@ -1,6 +1,6 @@
 /* Words tab — the original rapid-recall flashcards, now with saved progress. */
 import { VOCAB, CATEGORIES } from "../data/vocab.js";
-import { dayNum, getItem, getSettings, getState, isMastered, markSeen, review, setSetting } from "../lib/store.js";
+import { XP, dayNum, getItem, getSettings, getState, isMastered, markSeen, review, setSetting } from "../lib/store.js";
 import { canSpeak, speak, stopSpeaking } from "../lib/speech.js";
 import { esc, shuffle, onKeys, SPEAKER } from "../lib/util.js";
 
@@ -32,6 +32,7 @@ export function mount(root, initialCat) {
   const settings = getSettings();
 
   root.innerHTML = `
+    <a class="back-link" href="#/practice">← Practice</a>
     <div class="rail" id="catRail"></div>
     <div class="stage">
       <div class="deck-area">
@@ -148,7 +149,7 @@ export function mount(root, initialCat) {
   function advance(know) {
     if (!deck.length) return;
     if (know !== undefined) {
-      review(current().key, know);
+      review(current().key, know, { xp: know ? XP.card : XP.wrong });
       answered++;
       if (!know) again++;
     }

@@ -3,11 +3,16 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
     "check-data": "node scripts/check-data.js",
+    "test": "node --test \"tests/*.test.js\"",
+    "verify": "npm run check-data && npm test && npm run build",
     "cf:dev": "vite build && wrangler pages dev dist",
     "cf:deploy": "vite build && wrangler pages deploy dist",
     "kv:create": "wrangler kv namespace create PROGRESS"
@@ -17,6 +22,7 @@
     "wrangler": "^4.151.1"
   },
   "dependencies": {
+    "@fontsource-variable/nunito": "^5.3.0",
     "pinyin-pro": "^3.29.5"
   }
 }

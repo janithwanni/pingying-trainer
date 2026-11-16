@@ -1,5 +1,5 @@
 /* Offline support. Bump VERSION to force old caches out. */
-const VERSION = "v3";
+const VERSION = "v4";
 const CACHE = "sprint-" + VERSION;
 const SHELL = ["/", "/manifest.webmanifest", "/icons/icon-192.png"];
 

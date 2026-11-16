@@ -3,9 +3,15 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <title>速成 · Mandarin Sprint — Learn Pinyin by Rapid Recall</title>
-    <meta name="description" content="Learn Mandarin pinyin with rapid-recall flashcards and sentence-building lessons. Works offline and installs to your home screen." />
-    <meta name="theme-color" content="#aa3b2e" />
+    <title>速成 · Mandarin Sprint — Start speaking Mandarin from day one</title>
+    <meta name="description" content="Get conversation-ready in Mandarin fast: short sentence-pattern lessons you say out loud, spaced review, and role-play conversations with an AI partner. Free, works offline, installs to your home screen." />
+    <meta property="og:title" content="速成 Mandarin Sprint — start speaking Mandarin from day one" />
+    <meta property="og:description" content="Short lessons you say out loud, spaced review, and role-play conversations with an AI partner." />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content="/icons/icon-512.png" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="theme-color" content="#fff8ee" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#17142a" media="(prefers-color-scheme: dark)" />
     <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="icon" href="/icons/icon.svg" type="image/svg+xml" />
     <link rel="icon" href="/icons/icon-192.png" type="image/png" sizes="192x192" />
@@ -14,43 +20,35 @@
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="Sprint" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;900&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
-      rel="stylesheet"
-    />
   </head>
   <body>
+    <a class="skip-link" href="#view">Skip to content</a>
+    <noscript><p style="padding: 24px">Mandarin Sprint needs JavaScript to run.</p></noscript>
     <div class="wrap">
-      <header>
-        <a class="brand" href="#/learn">
-          <div class="seal">学</div>
-          <div>
-            <h1>速成 Mandarin Sprint</h1>
-            <p>pīnyīn · 拼音 · words → sentences, by rapid recall</p>
-          </div>
+      <header class="topbar">
+        <a class="brand" href="#/learn" aria-label="Mandarin Sprint home">
+          <div class="seal" lang="zh" aria-hidden="true">学</div>
+          <h1>Mandarin Sprint</h1>
         </a>
-        <div class="stat-strip">
-          <div class="stat"><div class="num" id="statStreak">0</div><div class="lbl">Day streak</div></div>
-          <div class="stat"><div class="num" id="statWords">0</div><div class="lbl">Words mastered</div></div>
-          <div class="stat"><div class="num" id="statSentences">0</div><div class="lbl">Sentences</div></div>
+        <div class="chips">
+          <a class="chip-stat streak" id="chipStreak" href="#/progress" title="Day streak"><span aria-hidden="true">🔥</span><b id="statStreak">0</b><span class="sr">day streak</span></a>
+          <a class="chip-stat xp" id="chipXp" href="#/progress" title="XP earned today"><span aria-hidden="true">⚡</span><b id="statXp">0</b></a>
+          <a class="chip-stat lvl" href="#/progress" title="Your level"><span aria-hidden="true">Lv</span><b id="statLevel">1</b><span class="sr">level</span></a>
         </div>
       </header>
 
       <nav class="tabs" aria-label="Main">
-        <a href="#/learn" data-tab="learn"><span class="tab-ico">路</span>Learn</a>
-        <a href="#/words" data-tab="words"><span class="tab-ico">字</span>Words</a>
-        <a href="#/practice" data-tab="practice"><span class="tab-ico">练</span>Practice</a>
-        <a href="#/talk" data-tab="talk"><span class="tab-ico">说</span>Talk</a>
-        <a href="#/progress" data-tab="progress"><span class="tab-ico">进</span>Progress</a>
+        <a href="#/learn" data-tab="learn"><span class="tab-ico" lang="zh" aria-hidden="true">学</span>Learn</a>
+        <a href="#/practice" data-tab="practice"><span class="tab-ico" lang="zh" aria-hidden="true">练</span>Practice</a>
+        <a href="#/talk" data-tab="talk"><span class="tab-ico" lang="zh" aria-hidden="true">说</span>Talk</a>
+        <a href="#/progress" data-tab="progress"><span class="tab-ico" lang="zh" aria-hidden="true">我</span>Me</a>
       </nav>
 
       <div class="install-bar" id="installBar" hidden></div>
-      <main id="view"></main>
+      <main id="view" tabindex="-1"></main>
 
       <footer>
-        <span>构建于 Claude · vocabulary curated for absolute beginners (HSK 1–2 core range)</span>
+        <span>Vocabulary for absolute beginners (HSK 1–2 core range) · <a href="#/progress">your data</a></span>
         <span id="footCount"></span>
       </footer>
     </div>

@@ -5,6 +5,9 @@
  * locally with pinyin-pro, scenario openers are built in, and reply
  * suggestions are only fetched when the learner taps Hint.
  *
+ * What the learner wanted to say (the "In Chinese" translations and the hints
+ * they pick) is saved to their phrasebook and comes back in Practice.
+ *
  * Small models can't reliably judge a learner's grammar (in testing they
  * flagged correct sentences), so the AI only translates, never grades. The
  * session lives at module level so switching tabs doesn't lose the
@@ -12,7 +15,8 @@
  */
 import { LEVELS, SCENARIOS, SCENARIO_BY_ID } from "../data/scenarios.js";
 import { MAX_CHARS, talkHints, talkTurn } from "../lib/llm.js";
-import { getSettings, logAnswer, setSetting } from "../lib/store.js";
+import { LESSON_BY_ID } from "../data/lessons.js";
+import { XP, TALK_DONE_TURNS, getSettings, getState, logAnswer, recordTalk, savePhrase, setSetting, talkId } from "../lib/store.js";
 import { canSpeak, speak, stopSpeaking } from "../lib/speech.js";
 import { looksLikePinyin, numbersToMarks } from "../lib/pinyin.js";
 import { esc, SPEAKER } from "../lib/util.js";
@@ -49,6 +53,14 @@ function newSession(sc) {
 /* ---------- home: scenario picker ---------- */
 function renderHome(root) {
   const lvl = level();
+  const { lessons } = getState();
+  const chats = SCENARIOS.filter((sc) => lessons[talkId(sc.id)]?.done).length;
+  // Where each scenario stands: done, ready (its lesson is finished) or still ahead.
+  const tag = (sc) => {
+    if (lessons[talkId(sc.id)]?.done) return `<span class="scene-tag done">✓ done</span>`;
+    if (lessons[sc.after]?.done) return `<span class="scene-tag ready">ready</span>`;
+    return `<span class="scene-tag">after lesson ${LESSON_BY_ID.get(sc.after)?.n ?? ""}</span>`;
+  };
   root.innerHTML = `
     <div class="lesson-head">
       <div class="lesson-kicker">Conversation practice · AI partner</div>
@@ -77,7 +89,9 @@ function renderHome(root) {
         .join("")}
     </div>
 
-    <h3 class="section-title">Scenarios</h3>
+    <h3 class="section-title">Scenarios · ${chats} / ${SCENARIOS.length} completed</h3>
+    <p class="muted">Every scenario is open. Ones marked <i>ready</i> use patterns you've already learned; for the
+    others, lean on 💡 Hint. A chat counts as completed after ${TALK_DONE_TURNS} replies.</p>
     <div class="scene-grid">
       ${SCENARIOS.map(
         (sc) => `
@@ -87,6 +101,7 @@ function renderHome(root) {
             <span class="scene-title">${esc(sc.title)}</span>
             <span class="scene-goal">${esc(sc.goal)}</span>
           </span>
+          ${tag(sc)}
         </a>`
       ).join("")}
     </div>`;
@@ -136,6 +151,8 @@ function renderChat(root) {
         </div>
         <div class="talk-actions">
           <button type="button" class="btn ghost" id="hintBtn">💡 Hint</button>
+          ${canSpeak() ? `<button type="button" class="btn ghost" id="slowBtn" title="Hear the last line again, slowly">🐢 Again, slowly</button>` : ""}
+          <button type="button" class="btn ghost" id="lostBtn" title="Tell your partner you don't understand" lang="zh">我听不懂</button>
           <button type="button" class="btn ghost" id="endBtn">End &amp; review</button>
         </div>
       </form>
@@ -164,6 +181,7 @@ function renderChat(root) {
                    <span class="fix-label">In Chinese</span>
                    <span class="fix-zh">${esc(t.say.zh)} ${canSpeak() ? `<button class="icon-btn sm" data-say="${esc(t.say.zh)}" aria-label="Play">${SPEAKER}</button>` : ""}</span>
                    <span class="fix-py">${esc(t.say.py)}</span>
+                   ${t.saved ? `<span class="fix-saved">＋ saved to My phrases</span>` : ""}
                  </div>`
               : ""
           }
@@ -182,7 +200,7 @@ function renderChat(root) {
         ${
           last && showHints && t.hints?.length
             ? `<div class="hints">${t.hints
-                .map((h) => `<button class="hint" data-use="${esc(h.zh)}"><b>${esc(h.zh)}</b><span>${esc(h.py)}</span><small>${esc(h.en)}</small></button>`)
+                .map((h, j) => `<button class="hint" data-use="${j}"><b>${esc(h.zh)}</b><span>${esc(h.py)}</span><small>${esc(h.en)}</small></button>`)
                 .join("")}</div>`
             : ""
         }
@@ -222,8 +240,13 @@ function renderChat(root) {
         if (e.name === "AbortError") throw e;
         r = await talkTurn(req, { signal: ctrl.signal });
       }
-      if (needSay && r.say) me.say = { zh: r.say, py: await toPinyin(r.say) };
-      logAnswer(!needSay);
+      if (needSay && r.say) {
+        me.say = { zh: r.say, py: await toPinyin(r.say) };
+        me.saved = savePhrase(me.say.zh, me.say.py, me.text);
+      }
+      logAnswer(!needSay, { xp: XP.talk });
+      // Only answered turns count toward completing the conversation.
+      recordTalk(s.scenario.id, s.turns.filter((t) => t.who === "me").length);
       s.turns.push({ who: "ai", zh: r.zh, py: await toPinyin(r.zh), en: r.en });
       if (pref("talkSpeak", true) && canSpeak() && log.isConnected) speak(r.zh);
     } catch (e) {
@@ -276,6 +299,11 @@ function renderChat(root) {
     preview.textContent = /[a-z][1-5]/i.test(input.value) ? numbersToMarks(input.value) : "";
   });
   hintBtn.addEventListener("click", hints);
+  root.querySelector("#slowBtn")?.addEventListener("click", () => {
+    const last = [...s.turns].reverse().find((t) => t.who === "ai");
+    if (last) speak(last.zh, 0.55);
+  });
+  root.querySelector("#lostBtn").addEventListener("click", () => send("我听不懂"));
   root.querySelector("#endBtn").addEventListener("click", () => renderReview(root));
   root.querySelectorAll("[data-pref]").forEach((cb) =>
     cb.addEventListener("change", () => {
@@ -294,7 +322,11 @@ function renderChat(root) {
     }
     const use = e.target.closest("[data-use]");
     if (use) {
-      input.value = use.dataset.use;
+      // A picked hint is something the learner wants to be able to say: keep it.
+      const h = s.turns[s.turns.length - 1].hints?.[use.dataset.use];
+      if (!h) return;
+      savePhrase(h.zh, h.py, h.en);
+      input.value = h.zh;
       input.focus();
     }
   });
@@ -344,11 +376,17 @@ function renderReview(root) {
       <div class="score">${inZh}/${mine.length}</div>
       <p class="muted">${mine.length ? "of your messages were in Chinese (characters or pinyin)" : "You didn't send any messages this time."}</p>
       ${
+        mine.length && mine.length < TALK_DONE_TURNS
+          ? `<p class="muted">Send ${TALK_DONE_TURNS} replies in one chat to tick this conversation off.</p>`
+          : ""
+      }
+      ${
         says.length
           ? `<p class="muted">Phrases to learn — what you said, in Chinese:</p>
              <ul class="missed talk-fixes">${says
                .map((t) => `<li>${esc(t.text)}<br /><b>${esc(t.say.zh)}</b> ${esc(t.say.py)}</li>`)
-               .join("")}</ul>`
+               .join("")}</ul>
+             <p class="muted">They're saved in <a href="#/practice">Practice → My phrases</a>, so you can drill saying them.</p>`
           : ""
       }
       <div class="cta-row center">

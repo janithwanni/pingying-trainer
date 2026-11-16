@@ -1,19 +1,24 @@
 /* A single lesson: pattern intro → drill queue → results. */
 import { LESSON_BY_ID, LESSONS } from "../data/lessons.js";
 import { VOCAB_BY_HZ } from "../data/vocab.js";
-import { completeLesson, getState, logAnswer, markSeen, review } from "../lib/store.js";
+import { XP, addXp, completeLesson, getState, logAnswer, markSeen, review, streak } from "../lib/store.js";
+import { confetti, sound } from "../lib/fx.js";
+import { createDrill, endFocus, resultsHtml } from "./drill.js";
+import { SCENARIOS } from "../data/scenarios.js";
 import { canSpeak, speak, stopSpeaking } from "../lib/speech.js";
 import { esc, shuffle, SPEAKER } from "../lib/util.js";
-import { renderExercise } from "./exercise.js";
+import { renderExercise, SPOKEN } from "./exercise.js";
 
 function plan(lesson) {
   const ss = lesson.sentences;
   const q = [];
-  // Round 1: understand every sentence. Round 2: build every sentence.
+  // Round 1: understand every sentence. Round 2: say every sentence after the
+  // audio. Round 3: build every sentence.
   ss.forEach((s) => q.push({ type: "meaning", s }));
+  shuffle([...ss]).forEach((s) => q.push({ type: "shadow", s }));
   shuffle([...ss]).forEach((s) => q.push({ type: "build", s }));
-  // Round 3: harder recall on half of them.
-  const hard = shuffle(canSpeak() ? ["type", "listen", "pick"] : ["type", "pick", "type"]);
+  // Round 4: recall without support on half of them, always including speaking.
+  const hard = ["speak", ...shuffle(canSpeak() ? ["hear", "type", "listen"] : ["type", "pick", "type"])];
   shuffle([...ss])
     .slice(0, Math.ceil(ss.length / 2))
     .forEach((s, i) => q.push({ type: hard[i % hard.length], s }));
@@ -52,7 +57,7 @@ export function mount(root, id) {
     const rec = getState().lessons[lesson.id];
     const total = plan(lesson).length;
     root.innerHTML = `
-      <a class="back-link" href="#/learn">← Sentence path</a>
+      <a class="back-link" href="#/learn">← Path</a>
       <div class="lesson-head">
         <div class="lesson-kicker">Lesson ${lesson.n} of ${LESSONS.length}${rec?.done ? ` · best ${rec.best}%` : ""}</div>
         <h2>${esc(lesson.title)}</h2>
@@ -106,74 +111,92 @@ export function mount(root, id) {
     const total = queue.length;
     let doneCount = 0;
     let firstTryRight = 0;
+    let xp = 0;
     const missed = new Set();
-
-    root.innerHTML = `
-      <div class="drill-top">
-        <button class="icon-btn" id="quitBtn" aria-label="Quit lesson">✕</button>
-        <div class="progress-track"><div class="progress-fill" id="drillFill"></div></div>
-        <span class="drill-count" id="drillCount"></span>
-      </div>
-      <div id="exRoot"></div>`;
-    const exRoot = root.querySelector("#exRoot");
-    root.querySelector("#quitBtn").addEventListener("click", () => {
-      if (confirm("Quit this lesson? Progress in this run won't be saved.")) location.hash = "#/learn";
+    const hud = createDrill(root, {
+      quitLabel: "Quit lesson",
+      onQuit: () => {
+        if (confirm("Quit this lesson? Progress in this run won't be saved.")) location.hash = "#/learn";
+      },
     });
 
     function next() {
       cleanupEx();
-      root.querySelector("#drillFill").style.width = (doneCount / total) * 100 + "%";
-      root.querySelector("#drillCount").textContent = `${Math.min(doneCount + 1, total)}/${total}`;
+      hud.progress(doneCount, total);
       const ex = queue.shift();
-      if (!ex) return results(Math.round((firstTryRight / total) * 100), missed);
+      if (!ex) return results(Math.round((firstTryRight / total) * 100), missed, xp, hud.bestCombo());
       window.scrollTo({ top: 0 });
-      cleanupEx = renderExercise(exRoot, ex, (ok) => {
-        logAnswer(ok);
-        if (!ex.retry) {
-          doneCount++;
-          if (ok) firstTryRight++;
-        }
-        if (!ok) {
-          missed.add(ex.s.key);
-          // Missed exercises come back once at the end of the queue.
-          if (!ex.retry) queue.push({ ...ex, retry: true });
-        }
-        next();
-      }) || (() => {});
+      cleanupEx =
+        renderExercise(
+          hud.exRoot,
+          ex,
+          (ok) => {
+            logAnswer(ok, { spoken: SPOKEN.has(ex.type) });
+            xp += ok ? XP.right : XP.wrong;
+            if (!ex.retry) {
+              doneCount++;
+              if (ok) firstTryRight++;
+            }
+            if (!ok) {
+              missed.add(ex.s.key);
+              // Missed exercises come back once at the end of the queue.
+              if (!ex.retry) queue.push({ ...ex, retry: true });
+            }
+            next();
+          },
+          { onAnswer: hud.mark }
+        ) || (() => {});
     }
     next();
   }
 
-  function results(score, missed) {
+  function results(score, missed, xp, combo) {
     cleanupEx();
+    endFocus();
+    const first = !getState().lessons[lesson.id]?.done;
+    const stars = score >= 90 ? 3 : score >= 70 ? 2 : 1;
+    const bonus = 20 + stars * 10;
     completeLesson(lesson.id, score);
+    addXp(bonus);
     // One SRS update per sentence: clean run → box up, any miss → review soon.
     lesson.sentences.forEach((s) => review(s.key, !missed.has(s.key), { log: false }));
     const nextL = LESSONS[lesson.n] || null;
-    const stars = score >= 90 ? 3 : score >= 70 ? 2 : 1;
-    root.innerHTML = `
-      <div class="results">
-        <div class="seal big">${["", "好", "很好", "太棒"][stars]}</div>
-        <h2>Lesson ${lesson.n} complete</h2>
-        <div class="score">${score}%</div>
-        <p>${"★".repeat(stars)}${"☆".repeat(3 - stars)} · first-try accuracy</p>
-        ${
-          missed.size
-            ? `<p class="muted">${missed.size} sentence${missed.size > 1 ? "s" : ""} will come back in Practice today.</p>`
-            : `<p class="muted">Flawless — these sentences return for review in a day.</p>`
-        }
-        <div class="cta-row center">
-          ${nextL ? `<a class="btn primary" href="#/lesson/${nextL.id}">Next: ${esc(nextL.title)} →</a>` : `<a class="btn primary" href="#/practice">Review sentences →</a>`}
-          <button class="btn" id="againBtn">Practice again</button>
-          <a class="btn ghost" href="#/learn">Path</a>
-        </div>
-      </div>`;
+    const scene = SCENARIOS.find((sc) => sc.after === lesson.id);
+    sound("done");
+    confetti(first || stars === 3 ? 70 : 30);
+    const days = streak();
+    root.innerHTML = resultsHtml({
+      mood: stars >= 2 ? "cheer" : "happy",
+      title: stars === 3 ? "太棒了! Brilliant!" : stars === 2 ? "很好! Well done!" : `Lesson ${lesson.n} complete`,
+      stars,
+      big: { value: score + "%", label: "first-try accuracy" },
+      xp: xp + bonus,
+      combo,
+      lines: [
+        missed.size
+          ? `${missed.size} sentence${missed.size > 1 ? "s" : ""} will come back in Practice today.`
+          : "Flawless — these sentences return for review in a day.",
+        days > 1 ? `🔥 ${days}-day streak — keep it burning.` : "",
+      ].filter(Boolean),
+      extra: scene
+        ? `<a class="use-it" href="#/talk/${scene.id}">
+             <span class="scene-ico">${scene.ico}</span>
+             <span><b>Use it in a conversation: ${esc(scene.title)}</b><br />${esc(scene.goal)}</span>
+             <span aria-hidden="true">→</span>
+           </a>`
+        : "",
+      buttons: `
+        ${nextL ? `<a class="btn ${scene ? "" : "primary"}" href="#/lesson/${nextL.id}">Next: ${esc(nextL.title)} →</a>` : `<a class="btn primary" href="#/practice">Review sentences →</a>`}
+        <button class="btn" id="againBtn">Practice again</button>
+        <a class="btn ghost" href="#/learn">Path</a>`,
+    });
     root.querySelector("#againBtn").addEventListener("click", drill);
   }
 
   intro();
   return () => {
     cleanupEx();
+    endFocus();
     stopSpeaking();
     root.removeEventListener("click", onSay);
   };

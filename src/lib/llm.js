@@ -26,6 +26,7 @@ async function post(body, signal) {
   throw new Error(
     {
       "daily-limit": "The AI partner has reached today's free limit. Try again tomorrow.",
+      "slow-down": "That's a lot of messages in a minute. Take a breath and try again shortly.",
       "ai-not-configured": "The AI partner isn't set up on this server (Workers AI binding missing).",
     }[data.error] ||
       (res.status === 404 || res.status === 405

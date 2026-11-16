@@ -1,7 +1,14 @@
 /* Progress tab — stats, activity chart, per-category mastery, sync settings. */
 import { VOCAB, CATEGORIES } from "../data/vocab.js";
-import { LESSONS } from "../data/lessons.js";
-import { bestStreak, getState, isMastered, lastDays, mergeIn, resetAll, streak, subscribe, summarize } from "../lib/store.js";
+import { LESSONS, LESSON_BY_ID } from "../data/lessons.js";
+import { SCENARIOS } from "../data/scenarios.js";
+import {
+  GOALS, bestStreak, dailyGoal, getPhrases, getSettings, getState, isMastered, lastDays, mergeIn, resetAll, setSetting,
+  streak, subscribe, summarize, talkId,
+} from "../lib/store.js";
+import { BADGES, levelFor } from "../lib/game.js";
+import { sound } from "../lib/fx.js";
+import { bao } from "../lib/mascot.js";
 import { forcePush, formatCode, getStatus, getSyncId, linkCode, onStatus, syncNow } from "../lib/sync.js";
 import { esc } from "../lib/util.js";
 
@@ -49,18 +56,66 @@ export function mount(root) {
     const mN = month.reduce((a, d) => a + d.n, 0);
     const mOk = month.reduce((a, d) => a + d.ok, 0);
     const lessonsDone = LESSONS.filter((l) => s.lessons[l.id]?.done).length;
+    const chats = SCENARIOS.filter((sc) => s.lessons[talkId(sc.id)]?.done).length;
     const id = getSyncId();
     const st = getStatus();
+    const lvl = levelFor(s.xp);
+    const earned = BADGES.filter((b) => s.badges[b.id]).length;
+    const GOAL_LABELS = { [GOALS[0]]: "Casual", [GOALS[1]]: "Regular", [GOALS[2]]: "Intensive" };
 
     root.innerHTML = `
-      <div class="lesson-head"><div class="lesson-kicker">Your progress</div><h2>进步 · Progress</h2></div>
+      <section class="profile">
+        <div class="hero-bao">${bao(streak() ? "cheer" : "happy", 88)}</div>
+        <div class="profile-main">
+          <div class="lesson-kicker">Level ${lvl.level}</div>
+          <h2>${lvl.title}</h2>
+          <div class="progress-track" role="progressbar" aria-label="Progress to level ${lvl.level + 1}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${lvl.pct}">
+            <div class="progress-fill" style="width:${lvl.pct}%"></div>
+          </div>
+          <small class="muted">${s.xp.toLocaleString()} XP · ${(lvl.need - lvl.into).toLocaleString()} to level ${lvl.level + 1}</small>
+        </div>
+      </section>
 
       <div class="tiles">
         <div class="tile-stat"><b>${streak()}</b><span>day streak</span><small>best ${bestStreak()}</small></div>
-        <div class="tile-stat"><b>${days[days.length - 1].n}</b><span>answers today</span><small>${mN} in 30 days</small></div>
+        <div class="tile-stat"><b>${days[days.length - 1].x || 0}</b><span>XP today</span><small>${mN} answers in 30 days</small></div>
         <div class="tile-stat"><b>${mN ? Math.round((mOk / mN) * 100) + "%" : "—"}</b><span>accuracy</span><small>last 30 days</small></div>
         <div class="tile-stat"><b>${lessonsDone}/${LESSONS.length}</b><span>lessons</span><small>${sn.mastered} sentences mastered</small></div>
       </div>
+
+      <section class="card-section">
+        <h3 class="section-title">Badges · ${earned} / ${BADGES.length}</h3>
+        <ul class="badges">
+          ${BADGES.map(
+            (b) => `<li class="${s.badges[b.id] ? "on" : ""}" title="${esc(b.how)}">
+              <span class="badge-ico" aria-hidden="true">${s.badges[b.id] ? b.ico : "🔒"}</span>
+              <b>${esc(b.name)}</b><small>${esc(b.how)}</small>
+            </li>`
+          ).join("")}
+        </ul>
+      </section>
+
+      <section class="card-section">
+        <h3 class="section-title">What you can do in Mandarin · ${chats} / ${SCENARIOS.length}</h3>
+        <ul class="cando">
+          ${SCENARIOS.map((sc) => {
+            const talked = s.lessons[talkId(sc.id)]?.done;
+            const learned = s.lessons[sc.after]?.done;
+            const l = LESSON_BY_ID.get(sc.after);
+            return `<li class="${talked ? "ok" : ""}">
+              <span class="step-mark" aria-hidden="true">${talked ? "✓" : ""}</span>
+              <span><b>${esc(sc.cando)}</b><br /><small>${
+                talked
+                  ? "You've held this conversation."
+                  : learned
+                    ? `Lesson done — now <a href="#/talk/${sc.id}">have the conversation</a>.`
+                    : `Start with <a href="#/lesson/${l.id}">Lesson ${l.n}: ${esc(l.title)}</a>`
+              }</small></span>
+            </li>`;
+          }).join("")}
+        </ul>
+        <p class="muted">A skill is ticked once you've finished its lesson's conversation in Talk. ${getPhrases().length} phrases saved from your chats.</p>
+      </section>
 
       <section class="card-section">
         <h3 class="section-title">Answers per day · last 14 days</h3>
@@ -101,6 +156,20 @@ export function mount(root) {
         <p class="muted">${sn.seen} sentences studied · ${sn.mastered} mastered · ${sn.due} due</p>
       </section>
 
+      <section class="card-section" id="settings">
+        <h3 class="section-title">Settings</h3>
+        <div class="setting">
+          <span><b>Daily goal</b><small>XP to earn each day</small></span>
+          <div class="seg" role="radiogroup" aria-label="Daily goal">
+            ${GOALS.map((g) => `<button class="seg-opt ${g === dailyGoal() ? "active" : ""}" data-goal="${g}" role="radio" aria-checked="${g === dailyGoal()}">${GOAL_LABELS[g]} <small>${g}</small></button>`).join("")}
+          </div>
+        </div>
+        <label class="setting">
+          <span><b>Sound effects &amp; vibration</b><small>Chimes for right and wrong answers</small></span>
+          <input type="checkbox" class="switch" id="sfxToggle" ${getSettings().sfx !== false ? "checked" : ""} />
+        </label>
+      </section>
+
       <section class="card-section" id="sync">
         <h3 class="section-title">Cloud sync & backup</h3>
         <p class="sync-status ${st.status}" id="syncStatus">${STATUS_TEXT[st.status]}</p>
@@ -119,8 +188,32 @@ export function mount(root) {
           <label class="btn ghost">Import backup<input type="file" id="importFile" accept="application/json" hidden /></label>
           <button class="btn ghost danger" id="resetBtn">Reset all progress</button>
         </div>
+      </section>
+
+      <section class="card-section" id="privacy">
+        <h3 class="section-title">Your data</h3>
+        <ul class="plain-list muted">
+          <li><b>No account, no tracking.</b> There are no ads or analytics. Progress is stored in this browser.</li>
+          <li><b>Cloud sync</b> stores your progress (which items you've studied and when — no name or email) on
+          Cloudflare under your sync code. It's deleted after a year without use, or right away with <i>Reset all progress</i>.</li>
+          <li><b>Talk</b> sends your messages to an AI model running on Cloudflare Workers AI to get a reply. Don't
+          put personal details in a chat. AI replies and translations can be wrong.</li>
+          <li><b>Voice.</b> Audio playback and speech recognition use your browser's built-in services; in some
+          browsers (Chrome, for example) recognition sends your recording to the browser maker to be transcribed.
+          The app never stores audio.</li>
+        </ul>
       </section>`;
 
+    root.querySelectorAll("[data-goal]").forEach((b) =>
+      b.addEventListener("click", () => {
+        setSetting("goal", Number(b.dataset.goal));
+        render();
+      })
+    );
+    root.querySelector("#sfxToggle").addEventListener("change", (e) => {
+      setSetting("sfx", e.target.checked);
+      sound("right");
+    });
     root.querySelector("#copyCode").addEventListener("click", async (e) => {
       try {
         await navigator.clipboard.writeText(formatCode(id));

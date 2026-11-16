@@ -1,9 +1,15 @@
-/* Practice tab — spaced-repetition review of sentences from lessons you've started. */
+/* Practice tab — spaced-repetition review of sentences from lessons you've
+ * started, plus the phrases saved from Talk. `#/practice/due` starts the due
+ * review straight away (used by the daily plan). */
 import { ALL_SENTENCES, LESSON_BY_ID } from "../data/lessons.js";
-import { dayNum, getState, review, summarize } from "../lib/store.js";
+import { VOCAB } from "../data/vocab.js";
+import { XP, dayNum, getPhrases, getState, removePhrase, review, summarize } from "../lib/store.js";
+import { confetti, sound } from "../lib/fx.js";
+import { bao } from "../lib/mascot.js";
+import { createDrill, endFocus, resultsHtml } from "./drill.js";
 import { canSpeak, stopSpeaking } from "../lib/speech.js";
 import { pickOne, sample, esc } from "../lib/util.js";
-import { renderExercise } from "./exercise.js";
+import { renderExercise, SPOKEN } from "./exercise.js";
 
 const SESSION = 10;
 
@@ -27,48 +33,90 @@ function weakSentences() {
     .sort((a, b) => items[b.key].w / (items[b.key].c + 1) - items[a.key].w / (items[a.key].c + 1));
 }
 
-export function mount(root) {
+/* Phrases saved from Talk: due ones first, then the newest. */
+function phraseQueue() {
+  const { items } = getState();
+  const today = dayNum();
+  const all = getPhrases();
+  const due = all.filter((p) => (items[p.key]?.d ?? 0) <= today);
+  return { all, due, set: [...due, ...all.filter((p) => !due.includes(p))].slice(0, SESSION) };
+}
+
+export function mount(root, arg) {
   let cleanupEx = () => {};
 
   function home() {
+    endFocus();
     const learned = learnedSentences();
     const due = dueSentences();
     const weak = weakSentences();
     const sum = summarize("s:");
+    const wDue = summarize("w:").due;
+    const phrases = phraseQueue();
+    const card = ({ mode, href, ico, title, sub, tag = "", hot = false, off = false }) =>
+      href
+        ? `<a class="drill-card ${hot ? "hot" : ""}" href="${href}"><span class="drill-ico" aria-hidden="true">${ico}</span><span class="drill-main"><b>${title}</b><small>${sub}</small></span>${tag}</a>`
+        : `<button class="drill-card ${hot ? "hot" : ""}" data-mode="${mode}" ${off ? "disabled" : ""}><span class="drill-ico" aria-hidden="true">${ico}</span><span class="drill-main"><b>${title}</b><small>${sub}</small></span>${tag}</button>`;
+    const count = (n, cls = "ready") => (n ? `<span class="scene-tag ${cls}">${n}</span>` : "");
     root.innerHTML = `
-      <div class="lesson-head">
-        <div class="lesson-kicker">Spaced repetition</div>
-        <h2>Sentence practice</h2>
+      <div class="hero-row">
+        <div class="hero-bao">${bao(due.length ? "think" : "happy", 84)}</div>
+        <div class="lesson-head">
+          <div class="lesson-kicker">Practice</div>
+          <h2>${due.length ? `${due.length} sentence${due.length > 1 ? "s are" : " is"} fading` : "The gym"}</h2>
+          <p class="muted">${due.length ? "A quick review now keeps them for good." : "Keep what you've learned, and sharpen your ear and your tones."}</p>
+        </div>
       </div>
+
+      <h3 class="section-title">Sentences</h3>
+      <div class="drill-grid">
+        ${card({ mode: "due", ico: "⏰", title: "Review", sub: due.length ? `${Math.min(SESSION, due.length)} sentences that are due` : learned.length ? "All caught up 🎉" : "Finish a lesson first", tag: count(due.length), hot: due.length > 0, off: !due.length })}
+        ${card({ mode: "mix", ico: "🎲", title: "Mixed bag", sub: learned.length ? `${Math.min(SESSION, learned.length)} random sentences you know` : "Finish a lesson first", off: !learned.length })}
+        ${card({ mode: "weak", ico: "🩹", title: "Trouble spots", sub: weak.length ? "Sentences you've missed before" : "None yet", tag: count(weak.length, ""), off: !weak.length })}
+        ${card({ mode: "phrases", ico: "📒", title: "My phrases", sub: phrases.all.length ? `Say them aloud · ${phrases.due.length} due` : "Saved from your Talk chats", tag: count(phrases.all.length, ""), off: !phrases.all.length })}
+      </div>
+
+      <h3 class="section-title">Skills</h3>
+      <div class="drill-grid">
+        ${card({ href: "#/tones", ico: "🎵", title: "Tones & sounds", sub: "Ear training and the tone mirror" })}
+        ${card({ href: wDue ? "#/words/due" : "#/words", ico: "🃏", title: "Word cards", sub: wDue ? `${wDue} word${wDue > 1 ? "s" : ""} due for review` : `${VOCAB.length} words, rapid-fire`, tag: count(wDue) })}
+      </div>
+
       ${
-        learned.length === 0
-          ? `<div class="empty">
-               <p>Sentences show up here after you finish a lesson.</p>
-               <a class="btn primary" href="#/lesson/l01">Start Lesson 1 →</a>
-             </div>`
-          : `<div class="practice-grid">
-               <button class="practice-card ${due.length ? "primary" : ""}" data-mode="due" ${due.length ? "" : "disabled"}>
-                 <span class="pc-num">${due.length}</span>
-                 <span class="pc-title">Due now</span>
-                 <span class="pc-sub">${due.length ? `review ${Math.min(SESSION, due.length)} sentences` : "all caught up 🎉"}</span>
-               </button>
-               <button class="practice-card" data-mode="mix">
-                 <span class="pc-num">${learned.length}</span>
-                 <span class="pc-title">Mixed review</span>
-                 <span class="pc-sub">${Math.min(SESSION, learned.length)} random learned sentences</span>
-               </button>
-               <button class="practice-card" data-mode="weak" ${weak.length ? "" : "disabled"}>
-                 <span class="pc-num">${weak.length}</span>
-                 <span class="pc-title">Trouble spots</span>
-                 <span class="pc-sub">${weak.length ? "sentences you've missed before" : "none yet"}</span>
-               </button>
-             </div>
-             <p class="muted">${sum.mastered} mastered · ${sum.learning} learning · ${sum.seen - sum.mastered - sum.learning} new.
+        learned.length
+          ? `<p class="muted">${sum.mastered} sentences mastered · ${sum.learning} learning · ${sum.seen - sum.mastered - sum.learning} new.
              Each correct review pushes a sentence further out (1 → 2 → 4 → 7 → 15 → 30 days); a miss brings it back today.</p>`
+          : ""
+      }
+      ${
+        phrases.all.length
+          ? `<details class="phrasebook">
+               <summary>My phrases (${phrases.all.length})</summary>
+               <p class="muted">Things you wanted to say in Talk, as translated by the AI partner. Remove any that look wrong.</p>
+               <ul>${phrases.all
+                 .map(
+                   (p) => `<li>
+                     <span><b lang="zh">${esc(p.text)}</b> <span class="pb-py">${esc(p.pinyin)}</span><br /><small>${esc(p.en)}</small></span>
+                     <button class="icon-btn sm" data-drop="${esc(p.text)}" aria-label="Remove ${esc(p.text)}">✕</button>
+                   </li>`
+                 )
+                 .join("")}</ul>
+             </details>`
+          : ""
       }`;
+    root.querySelectorAll("[data-drop]").forEach((b) =>
+      b.addEventListener("click", () => {
+        const open = root.querySelector(".phrasebook")?.open;
+        removePhrase(b.dataset.drop);
+        home();
+        const pb = root.querySelector(".phrasebook");
+        if (pb && open) pb.open = true;
+      })
+    );
     root.querySelectorAll("[data-mode]").forEach((b) =>
       b.addEventListener("click", () => {
         const mode = b.dataset.mode;
+        if (mode === "phrases") return run(phrases.set, ["speak"]);
         const set =
           mode === "due" ? due.slice(0, SESSION) : mode === "weak" ? weak.slice(0, SESSION) : sample(learned, SESSION);
         run(set);
@@ -76,66 +124,73 @@ export function mount(root) {
     );
   }
 
-  function run(set) {
-    const types = canSpeak() ? ["build", "build", "type", "listen", "pick", "meaning"] : ["build", "build", "type", "pick", "meaning"];
+  function run(set, only) {
+    const types =
+      only || (canSpeak() ? ["build", "speak", "speak", "hear", "listen", "type", "pick"] : ["build", "speak", "speak", "type", "pick", "meaning"]);
     const queue = set.map((s) => {
-      const pool = LESSON_BY_ID.get(s.lessonId).sentences;
+      const pool = LESSON_BY_ID.get(s.lessonId)?.sentences || [];
       return { type: pickOne(types), s, pool };
     });
     const total = queue.length;
     let n = 0;
     let right = 0;
     const missed = [];
-    root.innerHTML = `
-      <div class="drill-top">
-        <button class="icon-btn" id="quitBtn" aria-label="End session">✕</button>
-        <div class="progress-track"><div class="progress-fill" id="drillFill"></div></div>
-        <span class="drill-count" id="drillCount"></span>
-      </div>
-      <div id="exRoot"></div>`;
-    root.querySelector("#quitBtn").addEventListener("click", () => {
-      cleanupEx();
-      home();
+    const hud = createDrill(root, {
+      quitLabel: "End session",
+      onQuit: () => {
+        cleanupEx();
+        home();
+      },
     });
-    const exRoot = root.querySelector("#exRoot");
     function next() {
       cleanupEx();
-      root.querySelector("#drillFill").style.width = (n / total) * 100 + "%";
-      root.querySelector("#drillCount").textContent = `${Math.min(n + 1, total)}/${total}`;
+      hud.progress(n, total);
       const ex = queue.shift();
       if (!ex) return done();
       window.scrollTo({ top: 0 });
-      cleanupEx = renderExercise(exRoot, ex, (ok) => {
-        review(ex.s.key, ok);
-        n++;
-        if (ok) right++;
-        else missed.push(ex.s);
-        next();
-      }) || (() => {});
+      cleanupEx =
+        renderExercise(
+          hud.exRoot,
+          ex,
+          (ok) => {
+            review(ex.s.key, ok, { spoken: SPOKEN.has(ex.type) });
+            n++;
+            if (ok) right++;
+            else missed.push(ex.s);
+            next();
+          },
+          { onAnswer: hud.mark }
+        ) || (() => {});
     }
     function done() {
-      root.innerHTML = `
-        <div class="results">
-          <h2>Session done</h2>
-          <div class="score">${right}/${total}</div>
-          ${
-            missed.length
-              ? `<p class="muted">To revisit:</p><ul class="missed">${missed.map((s) => `<li><b>${esc(s.text)}</b> ${esc(s.pinyin)} — ${esc(s.en)}</li>`).join("")}</ul>`
-              : `<p class="muted">Perfect round.</p>`
-          }
-          <div class="cta-row center">
-            <button class="btn primary" id="homeBtn">Back to practice</button>
-            <a class="btn" href="#/learn">Lesson path</a>
-          </div>
-        </div>`;
+      endFocus();
+      const pct = total ? right / total : 0;
+      if (pct >= 0.8) {
+        sound("done");
+        confetti(pct === 1 ? 60 : 25);
+      }
+      root.innerHTML = resultsHtml({
+        mood: pct >= 0.8 ? "cheer" : pct >= 0.5 ? "happy" : "calm",
+        title: pct === 1 ? "Perfect round!" : "Session done",
+        big: { value: `${right}/${total}`, label: "correct" },
+        xp: right * XP.right + (total - right) * XP.wrong,
+        combo: hud.bestCombo(),
+        extra: missed.length
+          ? `<p class="muted">To revisit:</p><ul class="missed">${missed.map((s) => `<li><b lang="zh">${esc(s.text)}</b> ${esc(s.pinyin)} — ${esc(s.en)}</li>`).join("")}</ul>`
+          : "",
+        buttons: `<button class="btn primary" id="homeBtn">Back to practice</button><a class="btn" href="#/learn">Path</a>`,
+      });
       root.querySelector("#homeBtn").addEventListener("click", home);
     }
     next();
   }
 
-  home();
+  const due = arg === "due" ? dueSentences() : [];
+  if (due.length) run(due.slice(0, SESSION));
+  else home();
   return () => {
     cleanupEx();
+    endFocus();
     stopSpeaking();
   };
 }

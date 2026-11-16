@@ -1,7 +1,9 @@
 # 速成 Mandarin Sprint
 
-Pinyin trainer: rapid-recall word flashcards plus sentence-pattern lessons.
-Vanilla JS + Vite. It deploys to Cloudflare Pages, installs to a phone's home
+Mandarin for beginners, built to get people speaking quickly. A daily loop of
+**review → learn → talk**: spaced review of what's fading, one new sentence
+pattern that the learner hears, says aloud and builds, then a role-play
+conversation with an AI partner that uses it. Vanilla JS + Vite. It deploys to Cloudflare Pages, installs to a phone's home
 screen (PWA), works offline, and syncs progress through Cloudflare KV on the
 free tier.
 
@@ -12,7 +14,30 @@ npm install
 npm run dev          # UI only (cloud sync shows as "not set up", Talk tab unavailable)
 npm run cf:dev       # build + run with Pages Functions, a local KV store and Workers AI
 npm run check-data   # check vocab/lesson data (tile counts, tones, duplicates)
+npm test             # unit tests (pinyin grading, speech matching, progress store, both APIs)
+npm run verify       # check-data + tests + production build; CI runs the same on every push
 ```
+
+## How learning works
+
+- **Today's plan** (Learn tab): review what's due, do the next lesson, have a
+  conversation. A daily answer goal (15 / 30 / 60) and a streak keep it going.
+- **Lessons** drill each sentence four ways: choose the meaning, *listen and
+  repeat*, build it from tiles, then recall it without support (say it from
+  English, listen for meaning, type the pinyin).
+- **Speaking** is checked with the browser's Mandarin speech recognition where
+  it exists (Chrome, Edge, Safari). Speech is compared by sound, as toneless
+  pinyin, so homophones such as 她 / 他 pass, and tones are not checked. The
+  learner can always overrule it. Without recognition, or without microphone
+  permission, they check themselves against the answer.
+- **Each lesson leads to a conversation**: finishing one suggests the Talk
+  scenario that uses it (`after` in `src/data/scenarios.js`). A scenario is
+  completed after four answered replies, and ticks off a skill under *What you
+  can do in Mandarin* on the Progress tab.
+- **My phrases**: what the learner wanted to say in Talk (the "In Chinese"
+  translations and the hints they pick) is saved and comes back in Practice as
+  a speaking drill. These come from the AI and can be wrong, so each can be
+  removed.
 
 ## Talk tab (AI conversation practice)
 
@@ -32,6 +57,12 @@ your account's Neurons. Optional environment variables for the Pages project:
 |---|---|
 | `TALK_MODEL` | Use another Workers AI chat model (default `@cf/qwen/qwen3-30b-a3b-fp8`) |
 | `AI_GATEWAY` | Route calls through an [AI Gateway](https://developers.cloudflare.com/ai-gateway/) with that id, for analytics and rate limiting |
+
+**Abuse protection:** `/api/talk` refuses requests from other sites, caps the
+request size, and limits each address to 20 requests a minute. That limit is
+kept in the Function's memory, so it slows one client down but is not a hard
+quota. Before opening the app to the public, set `AI_GATEWAY` and turn on rate
+limiting there, or add a Cloudflare WAF rate-limiting rule for `/api/*`.
 
 **Neuron use:** a message costs about 1.7 Neurons (~220 input tokens and ~27
 output tokens), and so does a *Hint*. The free allocation of 10,000 Neurons a
@@ -93,7 +124,8 @@ each device.
 |---|---|
 | `src/data/vocab.js` | ~440 words, keyed by hanzi |
 | `src/data/lessons.js` | 15 sentence-pattern lessons, ~100 sentences, split into word tiles |
-| `src/lib/store.js` | progress: Leitner spaced repetition, lesson scores, daily activity (localStorage) |
+| `src/lib/store.js` | progress: Leitner spaced repetition, lesson and conversation records, phrasebook, daily activity (localStorage) |
+| `src/lib/listen.js` | speech recognition and scoring for the speaking exercises |
 | `src/lib/sync.js` | debounced sync to `/api/progress/:sync-code`, per-item last-write-wins merge |
 | `src/lib/pinyin.js` | grades typed pinyin (tone marks or numbers, ü as `v`, 不/一 sandhi tolerated) |
 | `src/lib/speech.js` | Mandarin text-to-speech through the browser's built-in voices |
@@ -102,6 +134,8 @@ each device.
 | `src/views/*` | Learn path, lesson player, exercises, flashcards, practice, progress |
 | `functions/api/progress/[id].js` | Pages Function that reads and writes KV |
 | `public/sw.js`, `public/manifest.webmanifest` | offline cache and home-screen install |
+| `public/_headers` | security headers, including the Content-Security-Policy |
+| `tests/`, `.github/workflows/ci.yml` | unit tests (`node --test`) and CI |
 
 **Sync model:** there are no accounts. Each device creates a random sync code
 (Progress tab). Entering that code on another device links the two. Anyone who

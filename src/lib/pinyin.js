@@ -96,3 +96,17 @@ function markSyllable(syl, tone) {
 export function numbersToMarks(str) {
   return str.replace(/([a-zA-Zü:]+)([0-5])/g, (_, syl, t) => markSyllable(syl, Number(t)));
 }
+
+/** How alike two syllable lists are, 0–1 (1 − edit distance ÷ longer length). */
+export function syllableSimilarity(a, b) {
+  if (!a.length || !b.length) return a.length === b.length ? 1 : 0;
+  let prev = Array.from({ length: b.length + 1 }, (_, j) => j);
+  for (let i = 1; i <= a.length; i++) {
+    const row = [i];
+    for (let j = 1; j <= b.length; j++) {
+      row[j] = Math.min(prev[j] + 1, row[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+    }
+    prev = row;
+  }
+  return 1 - prev[b.length] / Math.max(a.length, b.length);
+}
