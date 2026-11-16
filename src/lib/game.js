@@ -106,7 +106,9 @@ function check({ quiet = false } = {}) {
     }
     const lvl = levelFor(getState().xp).level;
     if (lastLevel && lvl > lastLevel && !quiet) {
-      toast({ ico: "🎉", title: `Level ${lvl}!`, text: `You're now a ${levelFor(getState().xp).title}.` });
+      const title = levelFor(getState().xp).title;
+      const fresh = title !== levelFor(100 * (lvl - 2) ** 2).title; // a new rank, not just a new number
+      toast({ ico: "🎉", title: `Level ${lvl}!`, text: fresh ? `New rank: ${title}.` : "Keep it up!" });
       sound("level");
       confetti();
     }

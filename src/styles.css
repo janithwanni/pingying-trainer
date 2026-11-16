@@ -3684,7 +3684,7 @@ body.in-drill [data-continue] {
 .mirror-svg {
   display: block;
   width: 100%;
-  max-width: 420px;
+  max-width: 340px;
   margin: 14px auto 4px;
   background: var(--paper-deep);
   border-radius: 18px;
@@ -3696,16 +3696,15 @@ body.in-drill [data-continue] {
 .mirror-svg .target {
   fill: none;
   stroke: var(--tone);
-  stroke-width: 5;
+  stroke-width: 2.4;
   stroke-linecap: round;
   stroke-linejoin: round;
-  stroke-dasharray: 1 9;
-  opacity: 0.9;
+  stroke-dasharray: 0.1 5;
 }
 .mirror-svg .mine {
   fill: none;
   stroke: var(--ink);
-  stroke-width: 3;
+  stroke-width: 1.8;
   stroke-linecap: round;
   stroke-linejoin: round;
 }

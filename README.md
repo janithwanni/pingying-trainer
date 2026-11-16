@@ -20,8 +20,20 @@ npm run verify       # check-data + tests + production build; CI runs the same o
 
 ## How learning works
 
-- **Today's plan** (Learn tab): review what's due, do the next lesson, have a
-  conversation. A daily answer goal (15 / 30 / 60) and a streak keep it going.
+- **Learn tab:** a path of 25 lessons in five units, with each lesson's
+  conversation as the next stop. Bao, the bun mascot, points at the next step
+  of the daily loop: review what's due, do the next lesson, have a conversation.
+- **Game layer** (`src/lib/game.js`): XP for every answer, levels, a daily XP
+  goal (100 / 250 / 500), a streak, three daily quests and 16 badges. All of it
+  is derived from the progress store, so it syncs with everything else.
+  Rounds play in a focus mode with a combo counter, sounds and confetti;
+  sounds and vibration can be turned off under *Me → Settings*.
+- **Tones & sounds** (Practice tab): the four tones with their pitch shapes,
+  then three listening drills (which tone, tone pairs, look-alike sounds such
+  as zh / z or u / ü) played through the device's Mandarin voice. The *tone
+  mirror* records a syllable, tracks its pitch on the device
+  (`src/lib/pitch.js`) and draws it over the tone's shape. It is a guide, not
+  a grade: the tone it reports comes from a simple rule on the contour.
 - **Lessons** drill each sentence four ways: choose the meaning, *listen and
   repeat*, build it from tiles, then recall it without support (say it from
   English, listen for meaning, type the pinyin).
@@ -33,7 +45,7 @@ npm run verify       # check-data + tests + production build; CI runs the same o
 - **Each lesson leads to a conversation**: finishing one suggests the Talk
   scenario that uses it (`after` in `src/data/scenarios.js`). A scenario is
   completed after four answered replies, and ticks off a skill under *What you
-  can do in Mandarin* on the Progress tab.
+  can do in Mandarin* on the Me tab.
 - **My phrases**: what the learner wanted to say in Talk (the "In Chinese"
   translations and the hints they pick) is saved and comes back in Practice as
   a speaking drill. These come from the AI and can be wrong, so each can be
@@ -122,8 +134,12 @@ each device.
 
 | Path | What it does |
 |---|---|
-| `src/data/vocab.js` | ~440 words, keyed by hanzi |
-| `src/data/lessons.js` | 15 sentence-pattern lessons, ~100 sentences, split into word tiles |
+| `src/data/vocab.js` | ~490 words, keyed by hanzi |
+| `src/data/lessons.js` | 25 sentence-pattern lessons in 5 units, ~170 sentences, split into word tiles |
+| `src/data/tones.js` | syllables, tone pairs and minimal pairs for the tone trainer |
+| `src/lib/game.js`, `src/lib/fx.js`, `src/lib/mascot.js` | levels, quests and badges; sounds, confetti and toasts; the mascot |
+| `src/lib/pitch.js` | pitch detection and tone classification for the tone mirror |
+| `src/views/drill.js` | shared round chrome: progress, combo, focus mode, results screen |
 | `src/lib/store.js` | progress: Leitner spaced repetition, lesson and conversation records, phrasebook, daily activity (localStorage) |
 | `src/lib/listen.js` | speech recognition and scoring for the speaking exercises |
 | `src/lib/sync.js` | debounced sync to `/api/progress/:sync-code`, per-item last-write-wins merge |
@@ -133,15 +149,21 @@ each device.
 | `functions/api/talk.js` | Pages Function that builds the prompt and calls Workers AI |
 | `src/views/*` | Learn path, lesson player, exercises, flashcards, practice, progress |
 | `functions/api/progress/[id].js` | Pages Function that reads and writes KV |
-| `public/sw.js`, `public/manifest.webmanifest` | offline cache and home-screen install |
+| `public/sw.js`, `public/manifest.webmanifest` | offline cache and home-screen install; the build writes the list of files to precache into `sw.js` (`vite.config.js`) |
 | `public/_headers` | security headers, including the Content-Security-Policy |
 | `tests/`, `.github/workflows/ci.yml` | unit tests (`node --test`) and CI |
 
 **Sync model:** there are no accounts. Each device creates a random sync code
-(Progress tab). Entering that code on another device links the two. Anyone who
+(Me tab). Entering that code on another device links the two. Anyone who
 has the code can read and change that progress, so keep it private. Writes are
 debounced to about one per 30 seconds of activity, plus one when the app is
 hidden. That keeps usage well inside the KV free tier (1,000 writes per day).
+
+**Fonts and theme:** the UI font (Nunito) is bundled from
+`@fontsource-variable/nunito` and precached with the rest of the build, so
+nothing is fetched from another site and the app works offline after the first
+visit. Chinese characters use the device's own font. Colours are tokens at the
+top of `src/styles.css`, with a dark theme that follows the system setting.
 
 **Adding sentences:** add an `S("我|是|学生", "wǒ|shì|xuésheng", "I am a student.")`
 line to a lesson in `src/data/lessons.js`, then run `npm run check-data`.

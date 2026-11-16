@@ -1,7 +1,10 @@
-/* Offline support. Bump VERSION to force old caches out. */
-const VERSION = "v4";
+/* Offline support. The build fills in ASSETS (every built file: code, styles,
+ * fonts) and sets VERSION to a hash of that list (see vite.config.js), so the
+ * whole app is cached on the first visit and each deploy replaces the cache. */
+const VERSION = "dev";
+const ASSETS = [];
 const CACHE = "sprint-" + VERSION;
-const SHELL = ["/", "/manifest.webmanifest", "/icons/icon-192.png"];
+const SHELL = ["/", "/manifest.webmanifest", "/icons/icon-192.png", ...ASSETS];
 
 self.addEventListener("install", (e) => {
   self.skipWaiting();
@@ -39,12 +42,8 @@ self.addEventListener("fetch", (e) => {
     return;
   }
 
-  // Hashed assets, icons and Google Fonts: stale-while-revalidate.
-  const cacheable =
-    url.origin === location.origin ||
-    url.hostname === "fonts.googleapis.com" ||
-    url.hostname === "fonts.gstatic.com";
-  if (!cacheable) return;
+  // Our own hashed assets and icons: stale-while-revalidate.
+  if (url.origin !== location.origin) return;
   e.respondWith(
     caches.open(CACHE).then(async (c) => {
       const hit = await c.match(req);
